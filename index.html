@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StudyOS · Oficial de Justiça TJSP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f6fa;--card:#fff;--ink:#1c2230;--muted:#6a7284;--line:#e5e7ee;--soft:#f0f1f6;
+  --accent:#4f46e5;--accent-soft:#eef0ff;--red:#e5484d;--red-soft:#fdecec;--yellow:#e09b13;--yellow-soft:#fdf4e1;
+  --green:#2f9e66;--green-soft:#e6f6ee;--shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.07);--r:12px;
+  --ft:'Outfit',system-ui,-apple-system,'Segoe UI',sans-serif;--fb:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--fb);font-size:14px;line-height:1.45}
+h1,h2,h3,h4,.ft,button,.tag,.tab,.subtab,th,.kpi b,.badge{font-family:var(--ft)}
+h2{font-size:20px;margin:0 0 4px;font-weight:600}
+h3{font-size:16px;margin:0 0 8px;font-weight:600}
+h4{font-size:14px;margin:0 0 6px;font-weight:600}
+select,input,textarea{font-family:var(--fb);font-size:13px;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;min-width:0}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+button{font-size:13px;font-weight:500;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+button:hover{background:var(--soft)}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+button.pri:hover{filter:brightness(1.08)}
+button.dan{color:var(--red)}
+button.sm{padding:3px 8px;font-size:12px}
+button.ico{padding:3px 6px;border:none;background:transparent;color:var(--muted);font-size:14px;line-height:1}
+button.ico:hover{color:var(--ink);background:var(--soft)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.muted{color:var(--muted)}.small{font-size:12px}.tiny{font-size:11px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.note{background:var(--accent-soft);border-radius:10px;padding:10px 12px;font-size:13px}
+.warn{background:var(--yellow-soft);border-radius:10px;padding:10px 12px;font-size:13px;color:#7a5200}
+.err{background:var(--red-soft);border-radius:10px;padding:10px 12px;font-size:13px;color:#9b1c20}
+.ok{background:var(--green-soft);border-radius:10px;padding:10px 12px;font-size:13px;color:#1d6b44}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+th{font-weight:600;color:var(--muted);font-size:12px}
+.tw{overflow-x:auto}
+
+/* header */
+header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+.topin{max-width:1400px;margin:0 auto;padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.brand{font-family:var(--ft);font-weight:700;font-size:20px;letter-spacing:-.3px}
+.brand span{color:var(--accent)}
+.sub{font-size:12px;color:var(--muted)}
+.count{display:flex;align-items:baseline;gap:6px;background:var(--accent-soft);border-radius:10px;padding:6px 12px}
+.count b{font-family:var(--ft);font-size:22px;color:var(--accent)}
+.savest{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.savest .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.savest.saving .dot{background:var(--yellow)}.savest.error .dot{background:var(--red)}.savest.error{color:var(--red)}
+.timerw{display:none;align-items:center;gap:6px;background:#111827;color:#fff;border-radius:10px;padding:5px 8px 5px 12px;font-size:12px}
+.timerw.on{display:flex}
+.timerw b{font-family:var(--ft);font-size:16px;font-variant-numeric:tabular-nums}
+.timerw button{background:#ffffff1a;border:none;color:#fff;padding:3px 8px}
+.timerw.brk{background:var(--green)}
+.timerw.alert{animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(79,70,229,.35)}}
+
+/* calendar */
+.calbar{max-width:1400px;margin:0 auto;padding:10px 16px 0}
+.cal{display:flex;gap:16px;align-items:stretch;flex-wrap:wrap}
+.calm{flex:0 1 420px;min-width:260px}
+.calhead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.calhead b{font-family:var(--ft);font-size:14px;min-width:130px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.calgrid .dh{font-size:10px;color:var(--muted);text-align:center;font-family:var(--ft)}
+.cd{font-size:11px;text-align:center;border-radius:6px;padding:3px 0;cursor:pointer;background:var(--soft);color:var(--ink);position:relative}
+.cd.wk{background:transparent;color:#b3b8c4;cursor:default}
+.cd.fol{background:#fde7d6;color:#9a4a12}
+.cd.rv{background:#e9e3ff;color:#5b3fd1}
+.cd.st{background:#eef0ff}
+.cd.prova{background:var(--red);color:#fff;font-weight:700}
+.cd.today{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700}
+.cd.out{visibility:hidden}
+.cd.done::after{content:'';position:absolute;bottom:2px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--green)}
+.cd.late::after{content:'';position:absolute;bottom:2px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--red)}
+.calleg{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:6px}
+.calleg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.calside{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;align-content:start;min-width:220px}
+.kpi{background:var(--soft);border-radius:10px;padding:8px 12px}
+.kpi b{display:block;font-size:18px}
+.kpi span{font-size:11px;color:var(--muted)}
+.bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:4px}
+
+/* tabs */
+nav.tabs{max-width:1400px;margin:12px auto 0;padding:0 16px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tab{border:none;background:transparent;padding:9px 14px;border-radius:9px;color:var(--muted);font-weight:500;font-size:14px}
+.tab.on{background:#fff;color:var(--ink);box-shadow:var(--shadow);font-weight:600}
+main{max-width:1400px;margin:0 auto;padding:14px 16px 60px}
+.subtabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:thin}
+.subtab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;font-size:12px;color:var(--muted);flex:none}
+.subtab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.subtab.cur{border-color:var(--accent);color:var(--accent)}
+.subtab.on.cur{color:#fff}
+.subtab.fin{border-style:dashed}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+.seg button{border:none;border-radius:0;padding:6px 12px}
+.seg button.on{background:var(--ink);color:#fff}
+
+/* tags */
+.tag{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;line-height:1.5;white-space:nowrap}
+.tag.mat{background:color-mix(in srgb,var(--c) 15%,#fff);color:color-mix(in srgb,var(--c) 75%,#000)}
+.tag.A{background:#fde8ea;color:#b4232a}.tag.M{background:#fdf1dc;color:#9a6200}.tag.B{background:#e8f1fb;color:#2a5f9e}
+.tag.rev{background:#ede7ff;color:#5b3fd1}
+.tag.late{background:var(--red);color:#fff}
+.tag.fin{background:#e9e3ff;color:#5b3fd1}
+.tag.cust{background:var(--soft);color:var(--muted)}
+.dotc{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+
+/* board */
+.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:start}
+.col{background:var(--soft);border-radius:var(--r);padding:8px;min-height:120px;transition:background .15s}
+.col.over{background:#e3e6ff}
+.col.off{background:repeating-linear-gradient(45deg,#f3f3f6,#f3f3f6 8px,#ececf1 8px,#ececf1 16px)}
+.colh{display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 8px;gap:6px}
+.colh b{font-family:var(--ft);font-size:13px}
+.colh .small{text-align:right}
+.colh.today b{color:var(--accent)}
+.card{background:#fff;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;padding:8px 9px;margin-bottom:8px;box-shadow:var(--shadow);cursor:grab}
+.card.dragging{opacity:.4}
+.card.isdone{opacity:.72}
+.card.isdone .ttl{text-decoration:line-through;text-decoration-color:#9aa0ad}
+.card.islate{border-color:#f3b3b5;border-left-color:var(--red);background:#fffafa}
+.card.isrev{border-left-style:dashed}
+.card .tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+.card .ttl{font-size:12.5px;font-weight:500;margin-bottom:6px;word-break:break-word}
+.card .ttl small{color:var(--muted);font-weight:400}
+.card .ctl{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.card .ctl select{font-size:11.5px;padding:3px 5px;flex:1;min-width:84px}
+.card .meta{display:flex;align-items:center;gap:2px;margin-top:6px}
+.card .meta .mins{font-size:11.5px;color:var(--muted);font-family:var(--ft);margin-right:auto}
+.card.tact{box-shadow:0 0 0 2px var(--accent)}
+.empty{font-size:12px;color:var(--muted);text-align:center;padding:14px 4px}
+.kb{grid-template-columns:repeat(5,minmax(0,1fr))}
+.kb4{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+/* blocks */
+.blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:12px}
+.mini{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.mini:last-child{border-bottom:none}
+.mini .t{flex:1;min-width:0}
+.mini .t div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-block;min-width:22px;text-align:center;background:var(--red);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;font-family:var(--ft);font-weight:600}
+.pill.g{background:var(--accent)}
+
+/* matérias */
+.mat{border:1px solid var(--line);border-radius:var(--r);background:#fff;margin-bottom:10px;overflow:hidden}
+.math{display:flex;gap:10px;align-items:center;padding:12px 14px;cursor:pointer;flex-wrap:wrap}
+.math h3{margin:0;font-size:15px}
+.matb{padding:0 14px 12px;display:none}
+.mat.open .matb{display:block}
+.topic{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.topic .tn{flex:1;min-width:200px;font-size:13px}
+.topic select{font-size:12px;padding:3px 6px}
+.st{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--soft);color:var(--muted);font-family:var(--ft);font-weight:600}
+.st.Iniciado{background:#e6f0ff;color:#2457b5}.st.Revisar{background:var(--yellow-soft);color:#8a5a00}.st.Finalizado{background:var(--green-soft);color:#1d6b44}
+
+/* ciclo */
+.cyc{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.cycd{background:var(--soft);border-radius:var(--r);padding:10px}
+.slot{display:flex;gap:4px;margin-bottom:6px}
+.slot select{flex:1}
+.slot input{width:62px}
+
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(17,24,39,.42);display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:6vh 14px;overflow-y:auto}
+.modal{background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+.modal.wide{max-width:820px}
+.modal h3{font-size:18px}
+.fm{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.fm label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+.fm label.full{grid-column:1/-1}
+.mft{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast{background:#111827;color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:92vw}
+.toast.e{background:var(--red)}
+
+/* questões */
+.acc{font-family:var(--ft);font-weight:600;padding:2px 8px;border-radius:999px;font-size:12px;display:inline-block}
+.acc.r{background:var(--red-soft);color:#b4232a}.acc.y{background:var(--yellow-soft);color:#8a5a00}.acc.g{background:var(--green-soft);color:#1d6b44}
+.focus{background:linear-gradient(90deg,#4f46e5,#7c3aed);color:#fff;border-radius:var(--r);padding:14px 16px;font-family:var(--ft);font-size:16px}
+.focus b{font-weight:700}
+.rk{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.rk:hover{background:var(--soft)}
+.rk .n{width:22px;font-family:var(--ft);color:var(--muted);text-align:center}
+.rk .t{flex:1;min-width:0}
+.weak{background:var(--red-soft)}
+.bnr{max-width:1400px;margin:10px auto 0;padding:0 16px}
+.bnr>div{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+@media (max-width:1000px){
+  .board,.kb,.kb4,.cyc{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .board,.kb,.kb4,.cyc{grid-template-columns:1fr}
+  .fm{grid-template-columns:1fr}
+  .calside{min-width:0;grid-template-columns:1fr 1fr}
+  .cal.fechado .calgrid,.cal.fechado .calleg,.cal.fechado .calside{display:none}
+  .calhead .tgl{display:inline-block!important}
+  .topin{gap:8px}
+  .brand{font-size:18px}
+  main{padding:12px 12px 60px}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="topin">
+  <div><div class="brand">Study<span>OS</span></div><div class="sub">Oficial de Justiça · TJSP · VUNESP</div></div>
+  <div class="count"><b id="hCount">–</b><span class="small">dias para a prova<br><span class="muted">dom., 14/03/2027</span></span></div>
+  <div class="sp"></div>
+  <div class="timerw" id="timerW"></div>
+  <div class="savest" id="saveSt"><span class="dot"></span><span id="saveTx">Carregando…</span></div>
+</div></header>
+<div class="bnr" id="banners"></div>
+<div class="calbar"><div class="panel cal" id="calendar"></div></div>
+<nav class="tabs" id="tabs"></nav>
+<main id="main"></main>
+<div class="toasts" id="toasts"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   STUDYOS · Cronograma Oficial de Justiça TJSP (VUNESP) 2026/2027
+   Arquivo único, offline. Dados no localStorage (+ pasta local opcional).
+   ===================================================================== */
+
+/* ---------- Constantes do concurso ---------- */
+const INICIO='2026-11-04', FIM_CONTEUDO='2027-03-05', REV_INI='2027-03-08', REV_FIM='2027-03-12', FIM='2027-03-13', PROVA='2027-03-14';
+const VERSAO_DADOS=1;
+const INC_PESO={A:3,M:2,B:1.2};           // peso de tempo por incidência
+const INC_FATOR={A:1,M:.66,B:.33};        // fator no índice de prioridade
+const INC_NOME={A:'ALTA',M:'MÉDIA',B:'BAIXA'};
+const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const DIAS_L=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const STATUS=['','Iniciado','Revisar','Finalizado'];
+const METODOS=['Questões','Aula','Leitura'];
+const LP='lp', INF='inf';
+
+/* ---------- Conteúdo programático (Anexo VIII), na ordem do edital ----------
+   [nome, incidência estimada (A/M/B), tamanho relativo opcional]
+   Pesos de Conhecimentos Específicos por matéria: ESTIMATIVA (o edital informa só 40 questões no bloco). */
+const EDITAL=[
+ {id:'lp',nome:'Língua Portuguesa',curto:'Português',cor:'#e5484d',questoes:15,pesoTxt:'15 questões (Bloco I, eliminatório)',inc:'A',topicos:[
+  ['Análise, compreensão e interpretação de textos verbais, não verbais, literários e não literários','A',1.4],
+  ['Informações literais e inferências possíveis','A'],
+  ['Ponto de vista do autor','M'],
+  ['Estruturação do texto: relações entre ideias; recursos de coesão','A'],
+  ['Significação contextual de palavras e expressões','M'],
+  ['Sinônimos e antônimos','B'],
+  ['Sentido próprio e figurado das palavras','B'],
+  ['Classes de palavras: emprego e sentido (substantivo, adjetivo, artigo, numeral, pronome, verbo, advérbio, preposição e conjunção)','M',1.6],
+  ['Concordância verbal e nominal','A',1.2],
+  ['Regência verbal e nominal','A',1.2],
+  ['Colocação pronominal','A'],
+  ['Crase','A'],
+  ['Pontuação','A',1.2]]},
+ {id:'pen',nome:'Direito Penal',curto:'Penal',cor:'#c2410c',questoes:6,pesoTxt:'≈6 questões (estimativa no Bloco II)',inc:'A',topicos:[
+  ['CP arts. 1º a 12 – Aplicação da lei penal (anterioridade, tempo, lugar, extraterritorialidade)','M',1.2],
+  ['CP arts. 100 a 106 – Ação penal; renúncia e perdão','M'],
+  ['CP arts. 107 a 120 – Extinção da punibilidade e prescrição','M',1.3],
+  ['CP art. 121 – Homicídio','M'],
+  ['CP art. 129 – Lesão corporal','M'],
+  ['CP art. 150 – Violação de domicílio','A'],
+  ['CP art. 154 – Violação do segredo profissional','B',.7],
+  ['CP arts. 293 a 295 – Falsificação de papéis públicos','B'],
+  ['CP arts. 296 a 305 – Falsidade documental (documento público e particular, falsidade ideológica, uso de documento falso)','A',1.2],
+  ['CP arts. 307, 308 e 311-A – Falsa identidade e fraudes em certames de interesse público','M'],
+  ['CP arts. 312 a 317 – Peculato, concussão, excesso de exação e corrupção passiva','A',1.2],
+  ['CP arts. 319 a 327 – Prevaricação, condescendência, advocacia administrativa, abandono de função; conceito de funcionário público','A',1.2],
+  ['CP arts. 328 a 333 – Usurpação de função, resistência, desobediência, desacato, tráfico de influência e corrupção ativa','A',1.2],
+  ['CP arts. 336 e 337 – Inutilização de edital ou sinal; subtração ou inutilização de livro ou documento','M',.7],
+  ['CP arts. 339 a 347 – Crimes contra a administração da justiça (denunciação caluniosa, falso testemunho, coação, fraude processual)','M',1.2],
+  ['CP arts. 357 e 359 – Exploração de prestígio; desobediência a decisão judicial sobre perda ou suspensão de direito','B',.7]]},
+ {id:'ppen',nome:'Direito Processual Penal',curto:'Proc. Penal',cor:'#7c3aed',questoes:7,pesoTxt:'≈7 questões (estimativa no Bloco II)',inc:'A',topicos:[
+  ['CPP arts. 24 a 42 – Ação penal pública e privada, representação, queixa, renúncia e perdão','M',1.3],
+  ['CPP arts. 61 e 62 – Extinção da punibilidade declarada de ofício','B',.6],
+  ['CPP arts. 63 a 68 – Ação civil ex delicto','B',.7],
+  ['CPP arts. 69 a 74 – Competência: lugar da infração, domicílio do réu e natureza da infração','M'],
+  ['CPP art. 112 – Impedimento e incompatibilidade de serventuários e auxiliares','M',.6],
+  ['CPP arts. 125 a 131 – Medidas assecuratórias: sequestro','M'],
+  ['CPP arts. 156 e 185 – Ônus da prova e interrogatório do acusado','M'],
+  ['CPP arts. 202 a 204 – Testemunhas: quem pode ser, depoimento oral','M',.7],
+  ['CPP arts. 218 a 225 – Testemunhas: condução coercitiva, oitiva fora da sede, prerrogativas','A'],
+  ['CPP arts. 240 a 250 – Busca e apreensão','A',1.2],
+  ['CPP art. 274 – Suspeição dos serventuários e funcionários da justiça','M',.6],
+  ['CPP arts. 283 a 300 – Prisão: disposições gerais (mandado, uso de força, ingresso em domicílio)','A',1.3],
+  ['CPP arts. 301 a 303 – Prisão em flagrante','A'],
+  ['CPP arts. 351 a 363 – Citação (mandado, precatória, hora certa, edital, réu preso)','A',1.4],
+  ['CPP arts. 370 a 372 – Intimações','A',.8],
+  ['CPP arts. 396 e 396-A – Resposta à acusação','M',.7],
+  ['CPP art. 406 – Júri: citação e resposta à acusação','M',.6],
+  ['CPP arts. 436 a 446 – Jurados: função, alistamento e prerrogativas','M'],
+  ['CPP arts. 485 a 487 – Júri: votação em sala especial','B',.6],
+  ['CPP arts. 513 a 518 – Processo dos crimes de responsabilidade dos funcionários públicos','M'],
+  ['CPP arts. 563 a 570 – Nulidades','M'],
+  ['CPP art. 593 – Apelação','B',.6],
+  ['CPP arts. 647 a 654 – Habeas corpus','M'],
+  ['CPP arts. 762 e 763 – Execução de medida de segurança: ordem de internação e mandado','B',.6],
+  ['CPP arts. 792, 798 e 798-A – Publicidade das audiências e prazos processuais','M'],
+  ['Lei 9.099/95 arts. 1º, 2º e 60 a 62 – JECRIM: princípios, competência, menor potencial ofensivo','M'],
+  ['Lei 9.099/95 arts. 66 a 68 – JECRIM: citação pessoal e intimações','A',.8]]},
+ {id:'pciv',nome:'Direito Processual Civil',curto:'Proc. Civil',cor:'#2563eb',questoes:9,pesoTxt:'≈9 questões (estimativa no Bloco II)',inc:'A',topicos:[
+  ['CPC arts. 1º a 11 – Normas fundamentais do processo civil','M',1.1],
+  ['CPC arts. 13 a 18 – Aplicação das normas processuais; jurisdição e ação','B',.8],
+  ['CPC arts. 21 a 27 e 36 – Limites da jurisdição nacional e cooperação internacional','B',.8],
+  ['CPC arts. 42 a 53 – Competência','M',1.2],
+  ['CPC arts. 64 a 66 – Incompetência e conflito de competência','B',.7],
+  ['CPC arts. 70 a 76 – Capacidade processual','M'],
+  ['CPC arts. 77 a 81 – Deveres das partes, ato atentatório e litigância de má-fé','M'],
+  ['CPC arts. 82 a 85 – Despesas e honorários','B'],
+  ['CPC arts. 98 a 102 – Gratuidade da justiça','M'],
+  ['CPC arts. 110 e 111 – Sucessão das partes e dos procuradores','B',.6],
+  ['CPC arts. 125 a 135 – Intervenção de terceiros: denunciação, chamamento e desconsideração da PJ','B'],
+  ['CPC arts. 139 a 143 – Poderes, deveres e responsabilidade do juiz','M'],
+  ['CPC arts. 149 a 155 – Auxiliares da justiça: escrivão e oficial de justiça (atribuições e responsabilidade)','A',1.3],
+  ['CPC arts. 159 a 161 – Depositário e administrador','A',.8],
+  ['CPC arts. 176 a 187 – Ministério Público, Advocacia Pública e Defensoria Pública','B'],
+  ['CPC arts. 188 a 199 – Atos processuais: forma e prática eletrônica','M'],
+  ['CPC arts. 203 a 211 – Pronunciamentos do juiz e atos do escrivão','M'],
+  ['CPC arts. 212 a 217 – Tempo e lugar dos atos processuais','A'],
+  ['CPC arts. 218 a 235 – Prazos','M',1.2],
+  ['CPC arts. 236 e 237 – Comunicação dos atos: cartas','M',.7],
+  ['CPC arts. 238 a 249 – Citação: conceito, efeitos e modalidades (eletrônica, correio, oficial de justiça)','A',1.3],
+  ['CPC arts. 250 a 254 – Citação: mandado e citação por hora certa','A',1.1],
+  ['CPC arts. 255 a 259 – Citação: comarcas contíguas e por edital','A'],
+  ['CPC arts. 269 a 275 – Intimações','A',1.1],
+  ['CPC arts. 447 a 449, 453 e 454 – Testemunhas: impedimentos e local de inquirição','M'],
+  ['CPC art. 502 – Coisa julgada','B',.5],
+  ['CPC art. 528 – Cumprimento de sentença de alimentos','M',.7],
+  ['CPC arts. 535, 536 e 538 – Cumprimento contra a Fazenda; obrigações de fazer, não fazer e entregar coisa','M'],
+  ['CPC arts. 554 e 560 a 563 – Ações possessórias: manutenção e reintegração de posse','M'],
+  ['CPC arts. 626, 695 e 751 – Citações no inventário, nas ações de família e na interdição','M',.8],
+  ['CPC art. 782 – Execução: atos executivos e oficial de justiça','A',.7],
+  ['CPC art. 795 – Responsabilidade patrimonial dos sócios','B',.5],
+  ['CPC arts. 806 e 807 – Execução para entrega de coisa certa','M',.7],
+  ['CPC arts. 827 a 830 – Execução por quantia: citação e arresto','A'],
+  ['CPC arts. 831 a 846 – Penhora: impenhorabilidade, ordem, auto, depósito e lugar','A',1.5],
+  ['CPC arts. 870 a 875 – Avaliação','A',.9],
+  ['CPC arts. 994, 1.001, 1.003, 1.009, 1.010, 1.015 e 1.022 – Recursos: espécies, prazos, apelação, agravo, embargos de declaração','M',1.1],
+  ['Lei 9.099/95 arts. 8º, 9º, 18 e 19 – JEC: partes, citação e intimação','A',.8]]},
+ {id:'const',nome:'Direito Constitucional',curto:'Constitucional',cor:'#0d9488',questoes:4,pesoTxt:'≈4 questões (estimativa no Bloco II)',inc:'M',topicos:[
+  ['CF arts. 1º a 4º – Princípios fundamentais','M'],
+  ['CF art. 5º (I a XXXIV) – Direitos e deveres individuais e coletivos','A',1.3],
+  ['CF art. 5º (XXXV a LXXIX) – Garantias processuais e remédios constitucionais','A',1.3],
+  ['CF arts. 6º a 11 – Direitos sociais','B'],
+  ['CF arts. 12 e 13 – Nacionalidade','M'],
+  ['CF arts. 14 a 16 – Direitos políticos','B'],
+  ['CF art. 18 – Organização político-administrativa','B',.6],
+  ['CF arts. 37 e 38 – Administração Pública: princípios e disposições gerais','A',1.3],
+  ['CF arts. 39 a 41 – Servidores públicos','M'],
+  ['CF arts. 92 a 99 – Poder Judiciário: disposições gerais','M',1.1],
+  ['CF arts. 125, 127 e 134 – Tribunais dos Estados, Ministério Público e Defensoria Pública','B',.8]]},
+ {id:'adm',nome:'Direito Administrativo',curto:'Administrativo',cor:'#0891b2',questoes:3,pesoTxt:'≈3 questões (estimativa no Bloco II)',inc:'M',topicos:[
+  ['Lei 10.261/68 arts. 1º, 3º, 4º, 11, 13 e 14 – Disposições preliminares, cargos e provimento','M'],
+  ['Lei 10.261/68 arts. 46, 47 e 57 – Posse e exercício','M',.8],
+  ['Lei 10.261/68 arts. 78, 110, 120 e 127','M',.8],
+  ['Lei 10.261/68 arts. 176, 241 a 243 e 251 – Deveres, proibições e penalidades','A'],
+  ['Lei 8.429/92 arts. 9º e 13 – Improbidade: enriquecimento ilícito e declaração de bens','A']]},
+ {id:'civ',nome:'Direito Civil',curto:'Civil',cor:'#16a34a',questoes:5,pesoTxt:'≈5 questões (estimativa no Bloco II)',inc:'M',topicos:[
+  ['CC arts. 1º a 10 – Personalidade e capacidade','M'],
+  ['CC arts. 11 a 21 – Direitos da personalidade','M'],
+  ['CC arts. 22 a 25 – Ausência: curadoria dos bens do ausente','B',.6],
+  ['CC arts. 40 a 45, 49, 50, 53 e 62 – Pessoas jurídicas, desconsideração, associações e fundações','M'],
+  ['CC arts. 70 a 78 – Domicílio','A'],
+  ['CC arts. 79 a 103 – Bens','M',1.2],
+  ['CC arts. 115 a 120 – Representação','B',.6],
+  ['CC arts. 138 a 159 – Defeitos do negócio jurídico','M',1.2],
+  ['CC arts. 166 a 184 – Invalidade do negócio jurídico','M'],
+  ['CC arts. 185 a 188 – Atos lícitos e ilícitos','M',.7],
+  ['CC arts. 189 a 201 – Prescrição','M'],
+  ['CC arts. 212 a 215 – Prova','B',.6],
+  ['CC arts. 653 a 666 – Mandato','M'],
+  ['CC arts. 1.169 a 1.173 – Preposto e gerente','B',.6],
+  ['CC arts. 1.196 a 1.203 – Posse: conceito e classificação','M'],
+  ['CC arts. 1.431, 1.432, 1.442, 1.444 a 1.447, 1.451, 1.461 e 1.467 a 1.472 – Penhor','B',.8],
+  ['CC arts. 1.728, 1.767 e 1.775 a 1.778 – Tutela e curatela','B',.7],
+  ['CC art. 1.997 – Responsabilidade da herança pelas dívidas','B',.5],
+  ['Decreto-Lei 4.657/42 – LINDB','M',1.1]]},
+ {id:'leg',nome:'Legislação Especial e Normas da Corregedoria',curto:'Leg. Especial',cor:'#a16207',questoes:6,pesoTxt:'≈6 questões (estimativa no Bloco II)',inc:'A',topicos:[
+  ['Lei 6.830/80 (arts. 1º, 2º, 7º, 8º, 11 e 37) – Execução fiscal','A'],
+  ['Resolução CNJ 354/2020 (arts. 1º e 8º a 10) – Cumprimento digital de atos processuais','A',.8],
+  ['Lei 11.608/2003 – Taxa judiciária (SP)','M',.8],
+  ['NSCGJ Tomo I, Cap. I (arts. 1º a 4º)','M',.6],
+  ['NSCGJ Tomo I, Cap. III, Seções III, V e XI (arts. 33, 47, 49 e 105 a 110)','M',.8],
+  ['NSCGJ Tomo I, Cap. IV, Seções III, IV e VI (art. 196, XX; art. 282, §1º; arts. 310 e 315)','M',.8],
+  ['NSCGJ Tomo I, Cap. IV, Seções XII a XIV (arts. 410, 436, 436-A, 439, 440 e 440-A)','M',.8],
+  ['NSCGJ Tomo I, Cap. VII – Oficiais de Justiça, parte 1 (arts. 994 a 1.040)','A',1.8],
+  ['NSCGJ Tomo I, Cap. VII – Oficiais de Justiça, parte 2 (arts. 1.041 a 1.091-A)','A',1.8],
+  ['NSCGJ Tomo I, Cap. X, Seção III (arts. 1.137 a 1.139) e Cap. XI, Seção VII (arts. 1.245 e 1.247)','B',.7]]},
+ {id:'atu',nome:'Atualidades',curto:'Atualidades',cor:'#db2777',questoes:3,pesoTxt:'3 questões (Bloco III)',inc:'B',topicos:[
+  ['Fatos políticos e econômicos, nacionais e internacionais (a partir do 1º semestre de 2026)','M',1.2],
+  ['Fatos sociais e culturais, nacionais e internacionais (a partir do 1º semestre de 2026)','M',1.2],
+  ['Estatuto da Pessoa com Deficiência (Lei 13.146/15) – arts. 1º a 13','A'],
+  ['Estatuto da Pessoa com Deficiência – arts. 34 a 38 e 79 a 87','M']]},
+ {id:'mat',nome:'Matemática e Raciocínio Lógico',curto:'Mat./RL',cor:'#ea580c',questoes:7,pesoTxt:'7 questões (3 Mat. + 4 RL, Bloco III)',inc:'M',topicos:[
+  ['Operações com números reais','M'],
+  ['Mínimo múltiplo comum e máximo divisor comum','M'],
+  ['Razão e proporção','A'],
+  ['Porcentagem','A'],
+  ['Regra de três simples e composta','A'],
+  ['Média aritmética simples e ponderada','M'],
+  ['Juros simples','M'],
+  ['Equação do 1º e 2º graus','M'],
+  ['Sistema de equações do 1º grau','M'],
+  ['Relação entre grandezas: tabelas e gráficos','M'],
+  ['Sistemas de medidas usuais','B'],
+  ['Noções de geometria: forma, perímetro, área, volume, ângulo, teorema de Pitágoras','M',1.2],
+  ['Resolução de situações-problema','A'],
+  ['RL: estrutura lógica de relações arbitrárias entre pessoas, lugares, coisas e eventos','A',1.2],
+  ['RL: sequências numéricas e figurais','A'],
+  ['RL: estruturas lógicas e lógica de argumentação','A',1.2],
+  ['RL: diagramas lógicos','M']]},
+ {id:'inf',nome:'Informática',curto:'Informática',cor:'#475569',questoes:5,pesoTxt:'5 questões (Bloco III)',inc:'M',topicos:[
+  ['MS-Windows 10+: pastas, diretórios, arquivos, atalhos, área de trabalho, área de transferência, menus e aplicativos','M',1.2],
+  ['Interação com o conjunto de aplicativos do Microsoft 365','B',.7],
+  ['MS-Word: estrutura, edição e formatação, cabeçalhos, parágrafos, fontes, colunas e marcadores','A'],
+  ['MS-Word: tabelas, impressão, quebras, numeração de páginas, legendas, índices, objetos, campos e caixas de texto','A'],
+  ['MS-Excel: células, linhas, colunas, pastas, tabelas e gráficos','A'],
+  ['MS-Excel: uso de fórmulas','A',1.2],
+  ['MS-Teams: chats, chamadas, grupos, colaboração (Word, Excel, PowerPoint, SharePoint, OneNote), reuniões e gravação','M'],
+  ['OneDrive: armazenamento e compartilhamento de arquivos','M',.7],
+  ['Correio eletrônico: preparo e envio de mensagens, anexos','M',.7],
+  ['Internet: navegação, URL, links, sites, busca e impressão de páginas','M',.8]]},
+ {id:'disc',nome:'Discursiva (Redação)',curto:'Discursiva',cor:'#9333ea',questoes:0,pesoTxt:'2 questões discursivas (0–40 pts, eliminatória: mín. 24)',inc:'A',pesoPrio:6,topicos:[
+  ['Critérios de correção VUNESP e estrutura da resposta discursiva','A'],
+  ['Leitura do enunciado, planejamento e rascunho com controle de linhas','A'],
+  ['Clareza, coesão e correção gramatical na resposta','M'],
+  ['Treino: questão discursiva de Processo Civil (citação, penhora, atribuições do oficial)','A',1.3],
+  ['Treino: questão discursiva de Processo Penal (citação, prisão, busca e apreensão)','A',1.3],
+  ['Treino: questão discursiva de Normas da Corregedoria (cumprimento de mandados)','A',1.3],
+  ['Treino: questão discursiva de Direito Penal / Constitucional','M'],
+  ['Treino: reescrita e correção de respostas anteriores','M']]}
+];
+
+/* Ciclo semanal padrão (dia da semana -> blocos). Até 3 disciplinas/dia; Português (seg/qui) e Informática (ter) nunca juntos.
+   Mistura matérias pesadas (leitura de lei) com matérias de natureza diferente (cálculo, português, redação). */
+const CICLO_PADRAO={
+ 1:[{m:'lp',min:75},{m:'pciv',min:120},{m:'disc',min:35}],
+ 2:[{m:'pen',min:85},{m:'inf',min:55},{m:'const',min:65}],
+ 3:[{m:'ppen',min:105},{m:'mat',min:85}],
+ 4:[{m:'lp',min:85},{m:'civ',min:80},{m:'atu',min:40}],
+ 5:[{m:'leg',min:100},{m:'adm',min:50},{m:'disc',min:40}]
+};
+/* Semana final (08 a 12/03/2027): somente revisão geral */
+const CICLO_FINAL={
+ 1:[{m:'lp',min:80},{m:'pciv',min:90},{m:'const',min:70}],
+ 2:[{m:'pen',min:80},{m:'ppen',min:90},{m:'inf',min:70}],
+ 3:[{m:'leg',min:90},{m:'civ',min:80},{m:'adm',min:70}],
+ 4:[{m:'lp',min:70},{m:'mat',min:90},{m:'atu',min:50}],
+ 5:[{m:'pciv',min:70},{m:'ppen',min:70},{m:'disc',min:60}]
+};
+const FOLGAS_PADRAO=[
+ {data:'2026-11-20',nome:'Consciência Negra',on:true},
+ {data:'2026-12-25',nome:'Natal',on:true},
+ {data:'2027-01-01',nome:'Confraternização Universal',on:true},
+ {data:'2027-02-08',nome:'Carnaval (segunda)',on:true},
+ {data:'2027-02-09',nome:'Carnaval (terça)',on:true}
+];
+
+/* ---------- Utilidades ---------- */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=p=>(p||'x')+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const clone=o=>JSON.parse(JSON.stringify(o));
+function d2s(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function s2d(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d,12)}
+function addDias(s,n){const d=s2d(s);d.setDate(d.getDate()+n);return d2s(d)}
+function dow(s){return s2d(s).getDay()}
+function difDias(a,b){return Math.round((s2d(b)-s2d(a))/864e5)}
+function segundaDe(s){const w=dow(s);return addDias(s,w===0?-6:1-w)}
+function fmtBR(s,ano){const[y,m,d]=s.split('-');return d+'/'+m+(ano?'/'+y:'')}
+function hoje(){
+  let q=null;try{q=new URLSearchParams(location.search).get('hoje')}catch(e){}
+  return (q&&/^\d{4}-\d{2}-\d{2}$/.test(q))?q:d2s(new Date());
+}
+function fmtHM(min){min=Math.max(0,Math.round(min||0));return pad(Math.floor(min/60))+':'+pad(min%60)+'h'}
+function parseHM(t){t=String(t||'').trim().replace(/h$/i,'');const m=t.match(/^(\d{1,3}):([0-5]\d)$/);if(m)return +m[1]*60+ +m[2];if(/^\d+$/.test(t))return +t;return null}
+const maxS=(a,b)=>a>b?a:b;
+
+/* ---------- Estado ---------- */
+let state=null;
+let TOP={};      // topicoId -> {t, m}
+let MAT={};      // materiaId -> materia
+const ui=Object.assign({calFechado:window.innerWidth<640,tab:'plan',semana:null,vista:'dias',calMes:null,statsMat:'',statsInc:'',qMat:null,qEdit:null,matOpen:{}},(()=>{try{return JSON.parse(localStorage.getItem('studyos-ui')||'{}')}catch(e){return {}}})());
+function salvarUI(){try{localStorage.setItem('studyos-ui',JSON.stringify({tab:ui.tab,semana:ui.semana,vista:ui.vista,statsMat:ui.statsMat,statsInc:ui.statsInc}))}catch(e){}}
+
+function estadoInicial(){
+  const materias=EDITAL.map(m=>({id:m.id,nome:m.nome,curto:m.curto,cor:m.cor,questoes:m.questoes,pesoTxt:m.pesoTxt,inc:m.inc,pesoPrio:m.pesoPrio||m.questoes,
+    topicos:m.topicos.map((t,i)=>({id:m.id+'-'+(i+1),nome:t[0],inc:t[1],tam:t[2]||1}))}));
+  return {versao:VERSAO_DADOS,criadoEm:new Date().toISOString(),atualizadoEm:null,
+    materias,ciclo:clone(CICLO_PADRAO),folgas:clone(FOLGAS_PADRAO),cards:[],finalizadoEm:{},tempos:[],questoes:[],
+    config:{cargaMax:240,maxDisc:3,amostraMin:20,revMin:{1:15,7:15,30:20},pomodoro:false,pomoFoco:25,pomoPausa:5,som:true},
+    timer:null,meta:{ultimoBackupExterno:null,ultimaCopiaDiaria:null}};
+}
+function indexar(){
+  TOP={};MAT={};
+  for(const m of state.materias){MAT[m.id]=m;for(const t of m.topicos)TOP[t.id]={t,m}}
+}
+
+/* ---------- Calendário de estudo ---------- */
+function isFolga(s){return state.folgas.some(f=>f.on&&f.data===s)}
+function nomeFolga(s){const f=state.folgas.find(f=>f.on&&f.data===s);return f?f.nome:''}
+function isDiaEstudo(s){const w=dow(s);return w>=1&&w<=5&&s>=INICIO&&s<=REV_FIM&&!isFolga(s)}
+function isSemanaFinal(s){return s>=REV_INI&&s<=REV_FIM}
+function semanas(){
+  const out=[];let mon=segundaDe(INICIO),n=1;
+  while(mon<=REV_FIM){
+    const dias=[0,1,2,3,4].map(i=>addDias(mon,i));
+    const ini=maxS(dias[0],INICIO);
+    out.push({n,mon,dias,ini,fim:dias[4],final:mon===REV_INI,label:'S'+n+' · '+fmtBR(ini)+'–'+fmtBR(dias[4])});
+    mon=addDias(mon,7);n++;
+  }
+  return out;
+}
+function semanaDe(s){return semanas().find(w=>s>=w.mon&&s<=addDias(w.mon,6))}
+
+/* ---------- Regras do dia ---------- */
+function cardsDoDia(s,excluirId){return state.cards.filter(c=>c.data===s&&c.id!==excluirId)}
+function infoDia(s,excluirId){
+  const cs=cardsDoDia(s,excluirId);const subs=new Set(cs.map(c=>c.m));
+  return {cs,subs,carga:cs.reduce((a,c)=>a+(+c.min||0),0)};
+}
+/* Retorna null se pode, ou o motivo do bloqueio. opts: {ignorarCarga, permitirFinal} */
+function motivoBloqueio(s,m,min,excluirId,opts={}){
+  if(!s)return 'Data inválida';
+  const w=dow(s);
+  if(w===0||w===6)return 'Sábado e domingo não têm estudo';
+  if(s<INICIO||s>REV_FIM)return 'Fora do período do cronograma';
+  if(isFolga(s))return 'Dia de folga ('+nomeFolga(s)+')';
+  if(isSemanaFinal(s)&&!opts.permitirFinal)return 'A semana final (08 a 12/03) é reservada à revisão geral';
+  const {subs,carga}=infoDia(s,excluirId);
+  if(!subs.has(m)&&subs.size>=state.config.maxDisc)return 'O dia já tem '+state.config.maxDisc+' disciplinas';
+  if((m===LP&&subs.has(INF))||(m===INF&&subs.has(LP)))return 'Português e Informática nunca podem cair no mesmo dia';
+  if(!opts.ignorarCarga&&carga+(+min||0)>state.config.cargaMax)return 'Carga diária passaria de '+fmtHM(state.config.cargaMax);
+  return null;
+}
+
+/* ---------- Status por tópico ---------- */
+function cardsDoTopico(tid,tipo='estudo'){return state.cards.filter(c=>c.t===tid&&c.tipo===tipo).sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0)}
+function statusTopico(tid){
+  const cs=cardsDoTopico(tid);
+  if(!cs.length)return '';
+  if(cs.every(c=>c.status==='Finalizado'))return 'Finalizado';
+  if(cs.some(c=>c.status==='Revisar'))return 'Revisar';
+  if(cs.some(c=>c.status))return 'Iniciado';
+  return '';
+}
+function parteDe(c){
+  if(c.tipo!=='estudo')return '';
+  const cs=cardsDoTopico(c.t);if(cs.length<2)return '';
+  return 'parte '+(cs.findIndex(x=>x.id===c.id)+1)+'/'+cs.length;
+}
+function isAtrasado(c){return c.tipo==='estudo'&&c.status!=='Finalizado'&&c.data<hoje()}
+
+/* ---------- Gerador / redistribuidor do planejamento ----------
+   Mantém: histórico (antes de "de"), cartões com status, cartões fixados manualmente, revisões.
+   Redistribui o restante de cada tópico, na ordem do edital, pelas sessões futuras do ciclo semanal,
+   proporcionalmente à incidência (ALTA > MÉDIA > BAIXA) e ao tamanho do tópico. */
+function pesoTopico(t){return (INC_PESO[t.inc]||2)*(t.tam||1)}
+function replanejar(deParam){
+  const de=deParam||maxS(INICIO,hoje());
+  const manter=[];
+  for(const c of state.cards){
+    if(c.tipo==='rev'){manter.push(c);continue}
+    if(c.tipo==='final'){if(isFolga(c.data)&&c.status!=='Finalizado')continue;manter.push(c);continue}
+    if(!TOP[c.t])continue;                                   // tópico excluído
+    if(isFolga(c.data)&&c.status!=='Finalizado')continue;   // nunca deixar atividade em folga
+    if(c.data<de){manter.push(c);continue}
+    if(c.status||c.fixo)manter.push(c);
+  }
+  state.cards=manter;
+  // semana final de revisão geral
+  for(let s=REV_INI;s<=REV_FIM;s=addDias(s,1)){
+    if(!isDiaEstudo(s))continue;
+    for(const sl of (CICLO_FINAL[dow(s)]||[])){
+      if(!MAT[sl.m])continue;
+      if(state.cards.some(c=>c.tipo==='final'&&c.data===s&&c.m===sl.m))continue;
+      state.cards.push({id:uid('f'),tipo:'final',m:sl.m,t:null,data:s,min:sl.min,status:'',metodo:'',titulo:tituloFinal(sl.m)});
+    }
+  }
+  // sessões por matéria
+  const capTot={},sess={};
+  for(const m of state.materias){capTot[m.id]=0;sess[m.id]=[]}
+  for(let s=INICIO;s<=FIM_CONTEUDO;s=addDias(s,1)){
+    if(!isDiaEstudo(s))continue;
+    for(const sl of (state.ciclo[dow(s)]||[])){
+      if(!MAT[sl.m]||!sl.min)continue;
+      capTot[sl.m]+=+sl.min;
+      if(s>=de)sess[sl.m].push({data:s,min:+sl.min});
+    }
+  }
+  const novos=[];
+  for(const m of state.materias){
+    const tops=m.topicos.filter(t=>!t.fora);
+    if(!tops.length||!sess[m.id].length)continue;
+    const W=tops.reduce((a,t)=>a+pesoTopico(t),0);
+    const lista=[];
+    for(const t of tops){
+      const st=statusTopico(t.id);
+      if(st==='Finalizado')continue;
+      const mant=cardsDoTopico(t.id).reduce((a,c)=>a+(+c.min||0),0);
+      const need=capTot[m.id]*pesoTopico(t)/W;
+      let rem=need-mant;
+      if(mant>0&&rem<15)continue;      // já coberto pelo que foi mantido
+      lista.push({id:t.id,rem:Math.max(rem,15)});
+    }
+    if(!lista.length)continue;
+    const Cf=sess[m.id].reduce((a,x)=>a+x.min,0);
+    const R=lista.reduce((a,x)=>a+x.rem,0);
+    const f=Cf/R;lista.forEach(x=>x.rem*=f);
+    let i=0;const pcs=[];
+    for(const se of sess[m.id]){
+      let left=se.min;const ini=pcs.length;
+      while(left>=10&&i<lista.length){
+        const t=lista[i];let take=Math.min(left,t.rem);
+        if(t.rem-take<12)take=t.rem;
+        pcs.push({t:t.id,data:se.data,min:take});
+        t.rem-=take;left-=take;
+        if(t.rem<=.5)i++;
+      }
+      if(left>0&&pcs.length>ini)pcs[pcs.length-1].min+=left;
+    }
+    while(i<lista.length){ // sobras de arredondamento vão para a última sessão
+      const se=sess[m.id][sess[m.id].length-1];pcs.push({t:lista[i].id,data:se.data,min:Math.max(10,lista[i].rem)});i++;
+    }
+    // junta pedaços do mesmo tópico no mesmo dia e arredonda para 5 min
+    const mg=[];
+    for(const p of pcs){const l=mg[mg.length-1];if(l&&l.t===p.t&&l.data===p.data)l.min+=p.min;else mg.push({...p})}
+    for(const p of mg)novos.push({id:uid('c'),tipo:'estudo',m:m.id,t:p.t,data:p.data,min:Math.max(10,Math.round(p.min/5)*5),status:'',metodo:''});
+  }
+  state.cards.push(...novos);
+  if(typeof reposicionarRevisoes==='function')reposicionarRevisoes(de);
+}
+function tituloFinal(m){return 'Revisão geral: tópicos de incidência ALTA, mapas e erros das questões'}
+
+/* ---------- Persistência (camada de dados isolada) ---------- */
+const LS_KEY='studyos-dados';
+function carregarDados(){
+  try{const raw=localStorage.getItem(LS_KEY);if(!raw)return null;return migrar(JSON.parse(raw))}catch(e){console.error(e);return null}
+}
+function migrar(d){
+  if(!d||typeof d!=='object')throw new Error('Arquivo inválido');
+  if(d.versao==null)throw new Error('Campo "versao" ausente');
+  if(d.versao>VERSAO_DADOS)throw new Error('Versão de dados mais nova que este StudyOS');
+  // futuras migrações: if(d.versao===1){...; d.versao=2}
+  const base=estadoInicial();
+  for(const k of Object.keys(base))if(d[k]===undefined)d[k]=base[k];
+  d.config=Object.assign(base.config,d.config||{});
+  d.meta=Object.assign(base.meta,d.meta||{});
+  return d;
+}
+let saveTimer=null;
+function salvarDados(){
+  state.atualizadoEm=new Date().toISOString();
+  try{localStorage.setItem(LS_KEY,JSON.stringify(state));setSaveSt('ok');}
+  catch(e){console.error(e);setSaveSt('error');}
+}
+function agendarSalvar(){setSaveSt('saving');clearTimeout(saveTimer);saveTimer=setTimeout(salvarDados,1000)}
+function setSaveSt(k){
+  const el=$('#saveSt');if(!el)return;el.className='savest'+(k==='saving'?' saving':k==='error'?' error':'');
+  const t=new Date();
+  $('#saveTx').textContent=k==='saving'?'Salvando…':k==='error'?'Erro ao salvar':'Salvo às '+pad(t.getHours())+':'+pad(t.getMinutes());
+}
+function commit(){indexar();agendarSalvar();render()}
+
+/* ---------- UI: utilidades ---------- */
+function toast(msg,erro){const t=document.createElement('div');t.className='toast'+(erro?' e':'');t.textContent=msg;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),erro?5000:3200)}
+function modal(html,opts={}){
+  fecharModal();
+  const ov=document.createElement('div');ov.className='ov';ov.id='ov';
+  ov.innerHTML='<div class="modal'+(opts.wide?' wide':'')+'">'+html+'</div>';
+  ov.addEventListener('mousedown',e=>{if(e.target===ov&&!opts.travar)fecharModal()});
+  document.body.appendChild(ov);return ov;
+}
+function fecharModal(){const o=$('#ov');if(o)o.remove()}
+function confirmar(msg,ok,txtOk='Confirmar',perigo=true){
+  const ov=modal('<h3>Confirmar</h3><p>'+msg+'</p><div class="mft"><button data-x>Cancelar</button><button class="'+(perigo?'pri':'pri')+'" data-ok>'+esc(txtOk)+'</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;$('[data-ok]',ov).onclick=()=>{fecharModal();ok()};
+}
+const tagMat=m=>'<span class="tag mat" style="--c:'+MAT[m].cor+'">'+esc(MAT[m].curto)+'</span>';
+const tagInc=i=>'<span class="tag '+i+'" title="Incidência estimada na VUNESP">'+INC_NOME[i]+'</span>';
+function optsMaterias(sel,vazio){return (vazio?'<option value="">'+vazio+'</option>':'')+state.materias.map(m=>'<option value="'+m.id+'"'+(m.id===sel?' selected':'')+'>'+esc(m.nome)+'</option>').join('')}
+function optsInc(sel){return ['A','M','B'].map(i=>'<option value="'+i+'"'+(i===sel?' selected':'')+'>'+INC_NOME[i]+'</option>').join('')}
+
+/* ---------- Cabeçalho e calendário ---------- */
+function renderTopo(){
+  const d=difDias(hoje(),PROVA);
+  $('#hCount').textContent=d>0?d:(d===0?'É hoje!':'—');
+  renderCalendario();
+}
+function renderCalendario(){
+  const h=hoje();
+  if(!ui.calMes){const base=h<INICIO?INICIO:(h>PROVA?PROVA:h);ui.calMes=base.slice(0,7)}
+  const [y,mo]=ui.calMes.split('-').map(Number);
+  const first=new Date(y,mo-1,1,12);let nome=first.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});nome=nome.charAt(0).toUpperCase()+nome.slice(1);
+  let off=first.getDay();const ndays=new Date(y,mo,0).getDate();
+  let g='';for(const n of ['D','S','T','Q','Q','S','S'])g+='<div class="dh">'+n+'</div>';
+  for(let i=0;i<off;i++)g+='<div class="cd out">.</div>';
+  for(let d=1;d<=ndays;d++){
+    const s=y+'-'+pad(mo)+'-'+pad(d),w=dow(s);let cl='cd',tt=fmtBR(s,1);
+    if(s===PROVA){cl+=' prova';tt+=' · PROVA'}
+    else if(w===0||w===6||s<INICIO||s>REV_FIM)cl+=' wk';
+    else if(isFolga(s)){cl+=' fol';tt+=' · Folga: '+nomeFolga(s)}
+    else if(isSemanaFinal(s)){cl+=' rv';tt+=' · Revisão geral'}
+    else cl+=' st';
+    if(s===h)cl+=' today';
+    const cs=state.cards.filter(c=>c.data===s&&c.tipo!=='rev');
+    if(cs.length){if(cs.some(isAtrasado))cl+=' late';else if(cs.every(c=>c.status==='Finalizado'))cl+=' done'}
+    g+='<div class="'+cl+'" title="'+esc(tt)+'" data-calday="'+s+'">'+d+'</div>';
+  }
+  const tot=state.cards.filter(c=>c.tipo==='estudo'),fin=tot.filter(c=>c.status==='Finalizado');
+  const tops=state.materias.flatMap(m=>m.topicos),tf=tops.filter(t=>statusTopico(t.id)==='Finalizado').length;
+  const dEst=semanas().flatMap(w=>w.dias).filter(s=>isDiaEstudo(s)&&s>=h&&s<=REV_FIM).length;
+  const pct=tops.length?Math.round(100*tf/tops.length):0;
+  $('#calendar').classList.toggle('fechado',!!ui.calFechado);$('#calendar').innerHTML='<div class="calm"><div class="calhead"><button class="ico" data-calnav="-1">‹</button><b>'+nome+'</b><button class="ico" data-calnav="1">›</button><span class="sp"></span><button class="sm" data-calnav="0">Hoje</button><button class="sm tgl" style="display:none" data-act="calTgl">'+(ui.calFechado?'Abrir':'Recolher')+'</button></div><div class="calgrid">'+g+'</div>'+
+   '<div class="calleg"><span><i style="background:#eef0ff"></i>Estudo</span><span><i style="background:#fde7d6"></i>Folga</span><span><i style="background:#e9e3ff"></i>Revisão geral</span><span><i style="background:var(--red)"></i>Prova</span><span><i style="background:#f0f1f6;border:1px solid #ddd"></i>Fim de semana</span></div></div>'+
+   '<div class="calside"><div class="kpi"><b>'+pct+'%</b><span>tópicos finalizados ('+tf+'/'+tops.length+')</span><div class="bar" style="margin-top:6px"><i style="width:'+pct+'%"></i></div></div>'+
+   '<div class="kpi"><b>'+dEst+'</b><span>dias de estudo restantes</span></div>'+
+   '<div class="kpi"><b>'+fmtBR(INICIO)+' → '+fmtBR(FIM)+'</b><span>período · 130 dias corridos</span></div></div>';
+}
+
+/* ---------- Abas ---------- */
+const ABAS=[['plan','Planejamento semanal'],['ciclos','Ciclos de estudo'],['materias','Matérias'],['stats','Estatísticas'],['tempo','Tempo de Estudos'],['questoes','Questões'],['config','Folgas e backup']];
+function renderAbas(){$('#tabs').innerHTML=ABAS.map(([k,n])=>'<button class="tab'+(ui.tab===k?' on':'')+'" data-tab="'+k+'">'+n+'</button>').join('')}
+const VIEWS={};
+function render(){
+  if(!state)return;
+  renderTopo();renderAbas();
+  if(typeof renderBanners==='function')renderBanners();
+  if(typeof renderTimerWidget==='function')renderTimerWidget();
+  const v=VIEWS[ui.tab]||VIEWS.plan;
+  const sy=window.scrollY;
+  $('#main').innerHTML=v();
+  window.scrollTo(0,sy);
+  salvarUI();
+}
+
+/* ---------- Cartão ---------- */
+function htmlCard(c){
+  const m=MAT[c.m];if(!m)return '';
+  const tp=c.t&&TOP[c.t]?TOP[c.t].t:null;
+  const late=isAtrasado(c);
+  let cls='card'+(c.status==='Finalizado'||c.status==='Revisada'?' isdone':'')+(late?' islate':'')+(c.tipo==='rev'?' isrev':'');
+  if(state.timer&&state.timer.cardId===c.id)cls+=' tact';
+  let tags=tagMat(c.m);
+  if(c.tipo==='rev')tags+='<span class="tag rev">Revisão D+'+c.n+'</span>';
+  if(c.tipo==='final')tags+='<span class="tag fin">Revisão geral</span>';
+  if(tp)tags+=tagInc(tp.inc);
+  if(tp&&tp.custom)tags+='<span class="tag cust">novo</span>';
+  if(late)tags+='<span class="tag late">Atrasado</span>';
+  const titulo=c.titulo||(tp?tp.nome:'(tópico removido)');
+  const parte=parteDe(c);
+  let stSel;
+  if(c.tipo==='rev'){
+    stSel='<select data-act="status" data-id="'+c.id+'" title="Status da revisão">'+['Pendente','Revisada'].map(s=>'<option'+(c.status===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
+  }else{
+    stSel='<select data-act="status" data-id="'+c.id+'" title="Status">'+STATUS.map(s=>'<option value="'+s+'"'+(c.status===s?' selected':'')+'>'+(s||'Não iniciado')+'</option>').join('')+'</select>';
+  }
+  const met='<select data-act="metodo" data-id="'+c.id+'" title="Como concluir"><option value="">Como concluir?</option>'+METODOS.map(s=>'<option'+(c.metodo===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
+  const tim=typeof htmlTimerBtns==='function'?htmlTimerBtns(c):'';
+  return '<div class="'+cls+'" draggable="true" data-card="'+c.id+'" style="--c:'+m.cor+'"><div class="tags">'+tags+'</div>'+
+    '<div class="ttl">'+esc(titulo)+(parte?' <small>· '+parte+'</small>':'')+(c.nota?'<div class="tiny muted">📝 '+esc(c.nota)+'</div>':'')+'</div>'+
+    '<div class="ctl">'+stSel+met+'</div>'+
+    '<div class="meta"><span class="mins">'+fmtHM(c.min)+'</span>'+tim+'<button class="ico" title="Editar" data-act="edit" data-id="'+c.id+'">✎</button><button class="ico" title="Excluir" data-act="del" data-id="'+c.id+'">🗑</button></div></div>';
+}
+
+/* ---------- Aba: Planejamento semanal ---------- */
+function semanaAtualIdx(){const ws=semanas(),h=hoje();const i=ws.findIndex(w=>h>=w.mon&&h<=addDias(w.mon,6));return i<0?(h<INICIO?0:ws.length-1):i}
+VIEWS.plan=function(){
+  const ws=semanas();
+  if(ui.semana==null||ui.semana>=ws.length)ui.semana=semanaAtualIdx();
+  const w=ws[ui.semana],cur=semanaAtualIdx();
+  let h='';
+  if(typeof htmlBlocosTopo==='function')h+=htmlBlocosTopo();
+  h+='<div class="subtabs">'+ws.map((x,i)=>'<button class="subtab'+(i===ui.semana?' on':'')+(i===cur?' cur':'')+(x.final?' fin':'')+'" data-sem="'+i+'">'+(x.final?'Revisão final · ':'')+x.label+'</button>').join('')+'</div>';
+  const cs=state.cards.filter(c=>c.data>=w.mon&&c.data<=w.fim);
+  const est=cs.filter(c=>c.tipo!=='rev'),fin=est.filter(c=>c.status==='Finalizado').length;
+  const carga=cs.reduce((a,c)=>a+c.min,0);
+  h+='<div class="row" style="margin-bottom:10px"><div><h2>Semana '+w.n+(w.final?' · Revisão geral':'')+'</h2><div class="muted small">'+fmtBR(w.ini,1)+' a '+fmtBR(w.fim,1)+' · '+cs.length+' blocos · '+fmtHM(carga)+' planejadas · '+fin+'/'+est.length+' finalizados</div></div><span class="sp"></span>'+
+     '<div class="seg"><button class="'+(ui.vista==='dias'?'on':'')+'" data-vista="dias">Por dia</button><button class="'+(ui.vista==='kanban'?'on':'')+'" data-vista="kanban">Kanban</button></div></div>';
+  if(w.final)h+='<div class="note" style="margin-bottom:10px">Semana final dedicada <b>integralmente à revisão</b>: nenhum conteúdo novo nem revisão espaçada é inserido aqui.</div>';
+  h+=(ui.vista==='kanban'&&typeof htmlKanban==='function')?htmlKanban(w,cs):htmlDias(w);
+  return h;
+};
+function htmlDias(w){
+  const h0=hoje();
+  return '<div class="board">'+w.dias.map(s=>{
+    const fora=s<INICIO,fol=isFolga(s);
+    const {cs,subs,carga}=infoDia(s);
+    const ord=cs.slice().sort((a,b)=>(a.tipo==='rev')-(b.tipo==='rev')||state.materias.indexOf(MAT[a.m])-state.materias.indexOf(MAT[b.m]));
+    let alert='';
+    if(subs.size>state.config.maxDisc)alert+=' ⚠ >'+state.config.maxDisc+' disc.';
+    if(subs.has(LP)&&subs.has(INF))alert+=' ⚠ Port.+Info';
+    const head='<div class="colh'+(s===h0?' today':'')+'"><b>'+DIAS_L[dow(s)]+' '+fmtBR(s)+'</b><span class="small muted">'+(fora?'antes do início':fol?'Folga · '+esc(nomeFolga(s)):fmtHM(carga)+' · '+subs.size+' disc.')+'<span style="color:var(--red)">'+alert+'</span></span></div>';
+    return '<div class="col'+(fora||fol?' off':'')+'" data-dropday="'+s+'">'+head+(ord.map(htmlCard).join('')||'<div class="empty">'+(fora||fol?'Sem estudo':'Nada planejado')+'</div>')+'</div>';
+  }).join('')+'</div>';
+}
+
+/* ---------- Aba: Ciclos de estudo ---------- */
+VIEWS.ciclos=function(){
+  const c=state.ciclo;
+  const val=validarCiclo(c);
+  let h='<div class="row" style="margin-bottom:10px"><div><h2>Ciclo semanal de estudos</h2><div class="muted small">Blocos de cada dia útil, sem horário fixo. Carga alvo de 3h a 4h/dia (o espaço restante até '+fmtHM(state.config.cargaMax)+' recebe revisões).</div></div><span class="sp"></span><button data-act="cicloPadrao">Restaurar padrão</button><button class="pri" data-act="cicloAplicar">Aplicar e redistribuir</button></div>';
+  h+=val.erros.map(e=>'<div class="err" style="margin-bottom:6px">'+e+'</div>').join('')+val.avisos.map(e=>'<div class="warn" style="margin-bottom:6px">'+e+'</div>').join('');
+  h+='<div class="cyc">'+[1,2,3,4,5].map(d=>{
+    const sl=c[d]||[];const tot=sl.reduce((a,x)=>a+(+x.min||0),0);
+    let rows='';
+    for(let i=0;i<3;i++){const x=sl[i]||{m:'',min:''};
+      rows+='<div class="slot"><select data-cic="'+d+'" data-i="'+i+'" data-f="m">'+optsMaterias(x.m,'— vazio —')+'</select><input type="number" min="0" step="5" data-cic="'+d+'" data-i="'+i+'" data-f="min" value="'+(x.min||'')+'" placeholder="min"></div>';}
+    return '<div class="cycd"><div class="colh"><b>'+DIAS_L[d]+'</b><span class="small muted">'+fmtHM(tot)+'</span></div>'+rows+'</div>';
+  }).join('')+'</div>';
+  // resumo por matéria
+  const sem={},per={};state.materias.forEach(m=>{sem[m.id]=0;per[m.id]=0});
+  for(const d of [1,2,3,4,5])for(const x of (c[d]||[]))if(x.m)sem[x.m]+=+x.min||0;
+  for(const cd of state.cards)if(cd.tipo==='estudo')per[cd.m]+=cd.min;
+  const relev=m=>(m.pesoPrio||m.questoes||1)*(INC_FATOR[m.inc]||.66);
+  const totR=state.materias.reduce((a,m)=>a+relev(m),0),totS=Object.values(sem).reduce((a,b)=>a+b,0)||1;
+  h+='<div class="panel" style="margin-top:14px"><h3>Distribuição por relevância</h3><div class="muted small" style="margin-bottom:8px">Relevância = peso no edital × incidência estimada na banca. Compare com a fatia de tempo semanal.</div><div class="tw"><table><tr><th>Matéria</th><th>Peso no edital</th><th>Incidência</th><th>Tempo/semana</th><th>Fatia do tempo</th><th>Fatia da relevância</th><th>Total planejado</th><th>Tópicos agendados</th></tr>'+
+   state.materias.map(m=>{
+     const tops=m.topicos.filter(t=>!t.fora),ag=tops.filter(t=>cardsDoTopico(t.id).length).length;
+     const ps=Math.round(100*sem[m.id]/totS),pr=Math.round(100*relev(m)/totR);
+     return '<tr><td><span class="row" style="gap:6px"><span class="dotc" style="--c:'+m.cor+'"></span>'+esc(m.nome)+'</span></td><td class="small">'+esc(m.pesoTxt)+'</td><td>'+tagInc(m.inc)+'</td><td>'+fmtHM(sem[m.id])+'</td><td style="min-width:110px"><div class="bar"><i style="width:'+ps+'%;background:'+m.cor+'"></i></div><span class="tiny muted">'+ps+'%</span></td><td><span class="tiny muted">'+pr+'%</span></td><td>'+fmtHM(per[m.id])+'</td><td>'+(ag===tops.length?'<span class="acc g">'+ag+'/'+tops.length+'</span>':'<span class="acc r">'+ag+'/'+tops.length+'</span>')+'</td></tr>';
+   }).join('')+'</table></div></div>';
+  h+='<div class="panel" style="margin-top:14px"><h3>Semana final (08 a 12/03/2027)</h3><div class="muted small" style="margin-bottom:8px">Somente revisão geral, sem conteúdo novo.</div><div class="cyc">'+[1,2,3,4,5].map(d=>'<div class="cycd"><div class="colh"><b>'+DIAS_L[d]+'</b></div>'+CICLO_FINAL[d].map(x=>'<div class="row small" style="margin-bottom:4px">'+tagMat(x.m)+'<span class="muted">'+fmtHM(x.min)+'</span></div>').join('')+'</div>').join('')+'</div></div>';
+  return h;
+};
+function validarCiclo(c){
+  const erros=[],avisos=[];const sem=new Set();
+  for(const d of [1,2,3,4,5]){
+    const sl=(c[d]||[]).filter(x=>x.m);const set=new Set(sl.map(x=>x.m));
+    set.forEach(m=>sem.add(m));
+    if(set.size>state.config.maxDisc)erros.push(DIAS_L[d]+': mais de '+state.config.maxDisc+' disciplinas.');
+    if(set.has(LP)&&set.has(INF))erros.push(DIAS_L[d]+': Língua Portuguesa e Informática não podem ficar no mesmo dia.');
+    if(set.size<sl.length)avisos.push(DIAS_L[d]+': matéria repetida no mesmo dia (os blocos serão somados).');
+    const tot=sl.reduce((a,x)=>a+(+x.min||0),0);
+    if(tot>state.config.cargaMax)erros.push(DIAS_L[d]+': carga de '+fmtHM(tot)+' acima do máximo de '+fmtHM(state.config.cargaMax)+'.');
+    else if(tot&&tot<180)avisos.push(DIAS_L[d]+': carga de '+fmtHM(tot)+' abaixo de 3h.');
+  }
+  const falt=state.materias.filter(m=>!sem.has(m.id)&&m.topicos.some(t=>!t.fora));
+  if(falt.length)erros.push('Sem horário no ciclo (os tópicos não serão agendados): '+falt.map(m=>m.nome).join(', ')+'.');
+  return {erros,avisos};
+}
+
+/* ---------- Aba: Matérias ---------- */
+VIEWS.materias=function(){
+  let h='<div class="row" style="margin-bottom:10px"><div><h2>Matérias e assuntos</h2><div class="muted small">Na ordem do Anexo VIII do edital.</div></div></div>';
+  h+='<div class="note" style="margin-bottom:12px"><b>Incidência ALTA / MÉDIA / BAIXA é uma estimativa</b>, baseada no perfil das provas recentes da VUNESP para Oficial de Justiça em Tribunais de Justiça (foco em atos de comunicação, penhora, atribuições do oficial, crimes contra a administração pública, Normas da Corregedoria, gramática normativa e interpretação). A divisão das 40 questões de Conhecimentos Específicos entre as matérias também é estimada. Você pode editar tudo; o planejamento usa a incidência para dar mais tempo aos tópicos mais cobrados.</div>';
+  for(const m of state.materias){
+    const tops=m.topicos,tf=tops.filter(t=>statusTopico(t.id)==='Finalizado').length,pct=tops.length?Math.round(100*tf/tops.length):0;
+    const open=ui.matOpen[m.id];
+    h+='<div class="mat'+(open?' open':'')+'"><div class="math" data-matopen="'+m.id+'"><span class="dotc" style="--c:'+m.cor+'"></span><h3>'+esc(m.nome)+'</h3><span class="small muted">'+esc(m.pesoTxt)+'</span><span class="sp"></span>'+
+      '<label class="small muted row" style="gap:4px" data-stop>Incidência <select data-matinc="'+m.id+'">'+optsInc(m.inc)+'</select></label>'+
+      '<span class="small muted">'+tf+'/'+tops.length+'</span><div class="bar" style="width:80px"><i style="width:'+pct+'%;background:'+m.cor+'"></i></div><span>'+(open?'▾':'▸')+'</span></div>';
+    h+='<div class="matb">';
+    tops.forEach((t,i)=>{
+      const st=statusTopico(t.id),n=cardsDoTopico(t.id);
+      const datas=n.length?n.map(c=>fmtBR(c.data)).join(', '):'não agendado';
+      h+='<div class="topic"><span class="tiny muted" style="width:22px">'+(i+1)+'.</span><span class="tn">'+esc(t.nome)+(t.custom?' <span class="tag cust">novo</span>':'')+'<div class="tiny muted">📅 '+datas+'</div></span>'+
+        '<span class="st '+(st||'')+'">'+(st||'Não iniciado')+'</span><select data-topinc="'+t.id+'" title="Incidência estimada">'+optsInc(t.inc)+'</select>'+
+        '<button class="ico" title="Editar nome" data-act="topEdit" data-id="'+t.id+'">✎</button>'+(t.custom?'<button class="ico" title="Excluir tópico" data-act="topDel" data-id="'+t.id+'">🗑</button>':'')+'</div>';
+    });
+    h+='<div class="topic"><button class="sm" data-act="topAdd" data-id="'+m.id+'">+ Adicionar tópico</button></div></div></div>';
+  }
+  return h;
+};
+
+/* ---------- Aba: Folgas e configurações ---------- */
+VIEWS.config=function(){
+  let h='<div class="grid g2"><div class="panel"><h3>Dias de folga</h3><div class="muted small" style="margin-bottom:8px">Ligue ou desligue. Ao alterar, o planejamento futuro é redistribuído automaticamente.</div><table>'+
+   state.folgas.slice().sort((a,b)=>a.data<b.data?-1:1).map(f=>'<tr><td><input type="checkbox" data-folga="'+f.data+'"'+(f.on?' checked':'')+'></td><td>'+fmtBR(f.data,1)+' <span class="muted small">'+DIAS[dow(f.data)]+'</span></td><td>'+esc(f.nome)+'</td><td><button class="ico" data-act="folgaDel" data-id="'+f.data+'" title="Remover">🗑</button></td></tr>').join('')+
+   '</table><div class="row" style="margin-top:10px"><input type="date" id="fData" min="'+INICIO+'" max="'+FIM_CONTEUDO+'"><input id="fNome" placeholder="Motivo (opcional)" style="flex:1"><button data-act="folgaAdd">Adicionar folga</button></div></div>';
+  h+='<div class="panel"><h3>Preferências</h3><div class="fm">'+
+   '<label>Carga máxima por dia (h:mm)<input id="cfCarga" value="'+fmtHM(state.config.cargaMax).replace('h','')+'"></label>'+
+   '<label>Amostra mínima no ranking de questões<input id="cfAmostra" type="number" min="1" value="'+state.config.amostraMin+'"></label>'+
+   '<label>Revisão D+1 (min)<input id="cfR1" type="number" min="5" value="'+state.config.revMin[1]+'"></label>'+
+   '<label>Revisão D+7 (min)<input id="cfR7" type="number" min="5" value="'+state.config.revMin[7]+'"></label>'+
+   '<label>Revisão D+30 (min)<input id="cfR30" type="number" min="5" value="'+state.config.revMin[30]+'"></label>'+
+   '</div><div class="row"><button class="pri" data-act="cfSalvar">Salvar preferências</button><button data-act="replanTudo">Redistribuir planejamento futuro</button></div>'+
+   '<p class="small muted">“Redistribuir” mantém o que já tem status, foi movido/editado manualmente ou está no passado, e reorganiza o restante a partir de hoje.</p></div></div>';
+  if(typeof htmlBackup==='function')h+=htmlBackup();
+  return h;
+};
+
+/*@@ETAPA2@@*/
+
+/*@@ETAPA3@@*/
+
+/*@@ETAPA4@@*/
+
+/* ---------- Ações (delegação de eventos) ---------- */
+const ACOES={};
+function cardPorId(id){return state.cards.find(c=>c.id===id)}
+function definirStatus(c,st){
+  if(c.tipo==='rev'){c.status=st;return}
+  const ant=c.t?statusTopico(c.t):'';
+  c.status=st;
+  if(c.tipo==='estudo'&&c.t){
+    const nov=statusTopico(c.t);
+    if(typeof aoMudarStatusTopico==='function')aoMudarStatusTopico(c.t,ant,nov);
+  }
+}
+ACOES.edit=id=>{
+  const c=cardPorId(id);if(!c)return;const tp=c.t&&TOP[c.t]?TOP[c.t].t:null;
+  const ov=modal('<h3>Editar bloco</h3><div>'+tagMat(c.m)+' '+(tp?tagInc(tp.inc):'')+'</div><div class="fm">'+
+    '<label class="full">Título exibido<input id="eTit" value="'+esc(c.titulo||(tp?tp.nome:''))+'"></label>'+
+    '<label>Data<input type="date" id="eData" value="'+c.data+'" min="'+INICIO+'" max="'+REV_FIM+'"></label>'+
+    '<label>Duração (h:mm)<input id="eMin" value="'+fmtHM(c.min).replace('h','')+'"></label>'+
+    '<label>Como concluir<select id="eMet"><option value="">—</option>'+METODOS.map(s=>'<option'+(c.metodo===s?' selected':'')+'>'+s+'</option>').join('')+'</select></label>'+
+    (tp?'<label>Incidência do tópico<select id="eInc">'+optsInc(tp.inc)+'</select></label>':'<span></span>')+
+    '<label class="full">Anotação<input id="eNota" value="'+esc(c.nota||'')+'"></label></div>'+
+    '<div id="eErr"></div><div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok>Salvar</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;
+  $('[data-ok]',ov).onclick=()=>{
+    const data=$('#eData').value,min=parseHM($('#eMin').value);
+    if(min==null||min<5){$('#eErr').innerHTML='<div class="err">Duração inválida. Use o formato 01:30.</div>';return}
+    if(data!==c.data||min!==c.min){
+      const mot=motivoBloqueio(data,c.m,min,c.id,{permitirFinal:c.tipo==='final'||(c.data>=REV_INI)});
+      if(mot&&!(mot.startsWith('Carga')&&data===c.data)){
+        if(mot.startsWith('Carga')){if(!confirm(mot+'. Salvar mesmo assim?'))return}
+        else{$('#eErr').innerHTML='<div class="err">'+mot+'.</div>';return}
+      }
+    }
+    const tit=$('#eTit').value.trim();
+    c.titulo=(tp&&tit===tp.nome)||!tit?undefined:tit;
+    if(data!==c.data)c.fixo=true;
+    c.data=data;c.min=min;c.metodo=$('#eMet').value;c.nota=$('#eNota').value.trim()||undefined;
+    if(tp&&$('#eInc'))tp.inc=$('#eInc').value;
+    if(c.tipo==='estudo')c.fixo=true;
+    fecharModal();commit();
+  };
+};
+ACOES.del=id=>{
+  const c=cardPorId(id);if(!c)return;
+  confirmar('Excluir este bloco do planejamento?<br><span class="small muted">'+esc(c.titulo||(c.t&&TOP[c.t]?TOP[c.t].t.nome:''))+'</span>',()=>{
+    const ant=c.t?statusTopico(c.t):'';
+    state.cards=state.cards.filter(x=>x.id!==id);
+    if(c.tipo==='estudo'&&c.t&&typeof aoMudarStatusTopico==='function')aoMudarStatusTopico(c.t,ant,statusTopico(c.t));
+    commit();toast('Bloco excluído');
+  },'Excluir');
+};
+ACOES.calTgl=()=>{ui.calFechado=!ui.calFechado;renderCalendario()};
+ACOES.cicloPadrao=()=>{state.ciclo=clone(CICLO_PADRAO);commit()};
+ACOES.cicloAplicar=()=>{
+  const v=validarCiclo(state.ciclo);if(v.erros.length){toast('Corrija os erros do ciclo antes de aplicar',1);return}
+  confirmar('Redistribuir o planejamento futuro com este ciclo? O que já tem status, foi movido manualmente ou está no passado é mantido.',()=>{replanejar();commit();toast('Planejamento redistribuído')},'Redistribuir',false);
+};
+ACOES.replanTudo=()=>confirmar('Redistribuir o planejamento futuro (a partir de hoje)?',()=>{replanejar();commit();toast('Planejamento redistribuído')},'Redistribuir',false);
+ACOES.topEdit=id=>{
+  const {t}=TOP[id];
+  const ov=modal('<h3>Editar tópico</h3><div class="fm"><label class="full">Nome<input id="tNome" value="'+esc(t.nome)+'"></label></div><div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok>Salvar</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;
+  $('[data-ok]',ov).onclick=()=>{const v=$('#tNome').value.trim();if(v)t.nome=v;fecharModal();commit()};
+};
+ACOES.topDel=id=>{
+  const {t,m}=TOP[id];
+  confirmar('Excluir o tópico “'+esc(t.nome)+'” e todos os seus blocos e revisões?',()=>{
+    m.topicos=m.topicos.filter(x=>x.id!==id);state.cards=state.cards.filter(c=>c.t!==id);delete state.finalizadoEm[id];commit();toast('Tópico excluído');
+  },'Excluir');
+};
+ACOES.topAdd=mid=>{
+  const m=MAT[mid];
+  const ov=modal('<h3>Novo tópico · '+esc(m.nome)+'</h3><div class="fm"><label class="full">Nome do tópico<input id="nNome" placeholder="Ex.: Súmulas do STJ sobre citação"></label>'+
+   '<label>Incidência estimada<select id="nInc">'+optsInc('M')+'</select></label>'+
+   '<label>Como inserir<select id="nModo"><option value="redist">Redistribuir no planejamento futuro</option><option value="data">Agendar em uma data</option><option value="nao">Só cadastrar (sem agendar)</option></select></label>'+
+   '<label>Data (se agendar)<input type="date" id="nData" min="'+INICIO+'" max="'+FIM_CONTEUDO+'"></label>'+
+   '<label>Duração (h:mm)<input id="nMin" value="00:40"></label></div><div id="nErr"></div><div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok>Adicionar</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;
+  $('[data-ok]',ov).onclick=()=>{
+    const nome=$('#nNome').value.trim();if(!nome){$('#nErr').innerHTML='<div class="err">Informe o nome.</div>';return}
+    const modo=$('#nModo').value,t={id:mid+'-n'+Date.now().toString(36),nome,inc:$('#nInc').value,tam:1,custom:true};
+    if(modo==='data'){
+      const d=$('#nData').value,min=parseHM($('#nMin').value);
+      if(min==null||min<5){$('#nErr').innerHTML='<div class="err">Duração inválida.</div>';return}
+      const mot=motivoBloqueio(d,mid,min,null);
+      if(mot&&!mot.startsWith('Carga')){$('#nErr').innerHTML='<div class="err">'+mot+'.</div>';return}
+      if(mot&&!confirm(mot+'. Agendar mesmo assim?'))return;
+      t.fora=true;m.topicos.push(t);indexar();
+      state.cards.push({id:uid('c'),tipo:'estudo',m:mid,t:t.id,data:d,min,status:'',metodo:'',fixo:true});
+    }else if(modo==='nao'){t.fora=true;m.topicos.push(t);indexar()}
+    else{m.topicos.push(t);indexar();replanejar()}
+    fecharModal();ui.matOpen[mid]=true;commit();toast('Tópico adicionado');
+  };
+};
+ACOES.folgaAdd=()=>{
+  const d=$('#fData').value;if(!d){toast('Escolha a data',1);return}
+  const w=dow(d);if(w===0||w===6){toast('Fins de semana já não têm estudo',1);return}
+  if(state.folgas.some(f=>f.data===d)){toast('Essa data já está na lista',1);return}
+  state.folgas.push({data:d,nome:$('#fNome').value.trim()||'Folga',on:true});replanejar();commit();toast('Folga adicionada e planejamento redistribuído');
+};
+ACOES.folgaDel=d=>confirmar('Remover a folga de '+fmtBR(d,1)+' da lista?',()=>{state.folgas=state.folgas.filter(f=>f.data!==d);replanejar();commit()},'Remover');
+ACOES.cfSalvar=()=>{
+  const c=parseHM($('#cfCarga').value);if(c==null||c<60||c>600){toast('Carga máxima inválida',1);return}
+  state.config.cargaMax=c;state.config.amostraMin=Math.max(1,+$('#cfAmostra').value||20);
+  state.config.revMin={1:+$('#cfR1').value||15,7:+$('#cfR7').value||15,30:+$('#cfR30').value||20};
+  commit();toast('Preferências salvas');
+};
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab],[data-sem],[data-vista],[data-act],[data-calnav],[data-calday],[data-matopen]');
+  if(!t)return;
+  if(e.target.closest('[data-stop]'))return;
+  if(t.dataset.tab){ui.tab=t.dataset.tab;render();window.scrollTo(0,0);return}
+  if(t.dataset.sem!=null){ui.semana=+t.dataset.sem;render();return}
+  if(t.dataset.vista){ui.vista=t.dataset.vista;render();return}
+  if(t.dataset.calnav!=null){
+    const v=+t.dataset.calnav;
+    if(v===0)ui.calMes=null;else{const[y,m]=ui.calMes.split('-').map(Number);const d=new Date(y,m-1+v,1);ui.calMes=d.getFullYear()+'-'+pad(d.getMonth()+1)}
+    renderCalendario();return}
+  if(t.dataset.calday){const w=semanaDe(t.dataset.calday);if(w){ui.tab='plan';ui.semana=w.n-1;render();window.scrollTo(0,0)}return}
+  if(t.dataset.matopen){ui.matOpen[t.dataset.matopen]=!ui.matOpen[t.dataset.matopen];render();return}
+  const a=t.dataset.act;if(a&&ACOES[a]){e.preventDefault();ACOES[a](t.dataset.id,t)}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.act==='status'){const c=cardPorId(t.dataset.id);if(c){definirStatus(c,t.value);commit()}return}
+  if(t.dataset.act==='metodo'){const c=cardPorId(t.dataset.id);if(c){c.metodo=t.value;commit()}return}
+  if(t.dataset.matinc){MAT[t.dataset.matinc].inc=t.value;commit();return}
+  if(t.dataset.topinc){TOP[t.dataset.topinc].t.inc=t.value;commit();toast('Incidência atualizada (use “Redistribuir” para refletir no tempo dos blocos futuros)');return}
+  if(t.dataset.folga){const f=state.folgas.find(x=>x.data===t.dataset.folga);f.on=t.checked;replanejar();commit();toast(f.on?'Folga ativada · planejamento redistribuído':'Folga desativada · planejamento redistribuído');return}
+  if(t.dataset.cic){
+    const d=t.dataset.cic,i=+t.dataset.i;const sl=state.ciclo[d]=state.ciclo[d]||[];
+    while(sl.length<=i)sl.push({m:'',min:0});
+    if(t.dataset.f==='m')sl[i].m=t.value;else sl[i].min=+t.value||0;
+    state.ciclo[d]=sl.filter((x,j)=>x.m||j<sl.length);
+    state.ciclo[d]=state.ciclo[d].filter(x=>x.m||x.min);
+    commit();return}
+  if(typeof aoChange==='function')aoChange(e);
+});
+
+/* ---------- Arrastar e soltar ---------- */
+let dragId=null;
+document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('[data-card],[data-tcard]');if(!c)return;dragId=c.dataset.card||('T:'+c.dataset.tcard);c.classList.add('dragging');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',dragId)}catch(_){}});
+document.addEventListener('dragend',e=>{$$('.dragging').forEach(x=>x.classList.remove('dragging'));$$('.over').forEach(x=>x.classList.remove('over'));dragId=null});
+document.addEventListener('dragover',e=>{const z=e.target.closest&&e.target.closest('[data-dropday],[data-dropst],[data-droptst]');if(!z||!dragId)return;e.preventDefault();$$('.over').forEach(x=>x!==z&&x.classList.remove('over'));z.classList.add('over')});
+document.addEventListener('drop',e=>{
+  const z=e.target.closest&&e.target.closest('[data-dropday],[data-dropst],[data-droptst]');if(!z||!dragId)return;e.preventDefault();
+  const id=dragId;dragId=null;z.classList.remove('over');
+  if(z.dataset.dropday){moverCard(id,z.dataset.dropday)}
+  else if(z.dataset.dropst!=null&&typeof soltarKanban==='function')soltarKanban(id,z.dataset.dropst);
+  else if(z.dataset.droptst!=null&&typeof soltarTopico==='function')soltarTopico(id,z.dataset.droptst);
+});
+function moverCard(id,dia){
+  const c=cardPorId(id);if(!c||c.data===dia)return;
+  const mot=motivoBloqueio(dia,c.m,c.min,c.id,{permitirFinal:c.tipo==='final'});
+  if(mot){
+    if(mot.startsWith('Carga')){confirmar(mot+'. Mover mesmo assim?',()=>{c.data=dia;c.fixo=true;commit()},'Mover',false);return}
+    toast('Não foi possível mover: '+mot,1);return;
+  }
+  c.data=dia;c.fixo=true;commit();toast('Movido para '+DIAS_L[dow(dia)]+' '+fmtBR(dia));
+}
+
+/* ---------- Inicialização ---------- */
+function iniciar(){
+  const d=carregarDados();
+  if(d){state=d;indexar()}
+  else{state=estadoInicial();indexar();replanejar(INICIO);salvarDados()}
+  setSaveSt('ok');
+  if(typeof aoIniciar==='function')aoIniciar();
+  render();
+}
+iniciar();
+</script>
+</body>
+</html>
