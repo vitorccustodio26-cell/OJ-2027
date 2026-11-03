@@ -1029,7 +1029,303 @@ function aoChange(e){
 }
 
 
-/*@@ETAPA3@@*/
+/* =================== ETAPA 3: revisões, atrasos, cronômetro, questões =================== */
+
+/* ---------- Revisão espaçada automática (D+1, D+7, D+30) ---------- */
+function aoMudarStatusTopico(tid,ant,nov){
+  if(ant!=='Finalizado'&&nov==='Finalizado')agendarRevisoes(tid);
+  else if(ant==='Finalizado'&&nov!=='Finalizado')removerRevisoes(tid);
+}
+function acharDiaRevisao(c,de){
+  let d=maxS(maxS(c.alvo,INICIO),de||INICIO);
+  while(d<=FIM_CONTEUDO){if(!motivoBloqueio(d,c.m,c.min,c.id))return d;d=addDias(d,1)}
+  return null; // cairia na semana final ou depois de 12/03: descartada
+}
+function agendarRevisoes(tid){
+  const base=hoje();state.finalizadoEm[tid]=base;const m=TOP[tid].m;
+  removerRevisoes(tid,true);
+  let ok=[],desc=0;
+  for(const n of [1,7,30]){
+    const c={id:uid('r'),tipo:'rev',m:m.id,t:tid,n,alvo:addDias(base,n),min:+state.config.revMin[n]||15,status:'Pendente',metodo:''};
+    const d=acharDiaRevisao(c);
+    if(d){c.data=d;state.cards.push(c);ok.push('D+'+n+' '+fmtBR(d))}else desc++;
+  }
+  toast('Revisões agendadas: '+(ok.join(', ')||'nenhuma')+(desc?' · '+desc+' descartada(s) (cairiam na semana final ou após 12/03)':''));
+}
+function removerRevisoes(tid,silencioso){
+  const n=state.cards.filter(c=>c.tipo==='rev'&&c.t===tid).length;
+  state.cards=state.cards.filter(c=>!(c.tipo==='rev'&&c.t===tid));
+  if(!silencioso){delete state.finalizadoEm[tid];if(n)toast(n+' revisão(ões) agendada(s) removida(s)')}
+}
+function reposicionarRevisoes(de){
+  const pend=state.cards.filter(c=>c.tipo==='rev'&&c.status!=='Revisada'&&(c.data>=de||isFolga(c.data)));
+  state.cards=state.cards.filter(c=>!pend.includes(c));
+  pend.sort((a,b)=>a.alvo<b.alvo?-1:1);
+  for(const c of pend){const d=acharDiaRevisao(c,isFolga(c.data)?c.data:de);if(d){c.data=d;state.cards.push(c)}}
+}
+
+/* ---------- Blocos do topo: revisões de hoje e pendências ---------- */
+const ORD_INC={A:0,M:1,B:2};
+function incDe(c){return c.t&&TOP[c.t]?TOP[c.t].t.inc:'M'}
+function htmlBlocosTopo(){
+  const h=hoje();
+  const revH=state.cards.filter(c=>c.tipo==='rev'&&c.data===h);
+  const revV=state.cards.filter(c=>c.tipo==='rev'&&c.data<h&&c.status!=='Revisada');
+  const atr=state.cards.filter(isAtrasado).sort((a,b)=>ORD_INC[incDe(a)]-ORD_INC[incDe(b)]||(a.data<b.data?-1:1));
+  const lin=(c,extra)=>'<div class="mini"><input type="checkbox" data-revok="'+c.id+'"'+(c.status==='Revisada'?' checked':'')+' title="Marcar como revisada">'+
+    '<div class="t"><div>'+tagMat(c.m)+' <span class="tag rev">D+'+c.n+'</span> '+esc(TOP[c.t]?TOP[c.t].t.nome:'')+'</div>'+(extra?'<span class="tiny muted">'+extra+'</span>':'')+'</div><span class="tiny muted">'+fmtHM(c.min)+'</span></div>';
+  let o='<div class="blocks"><div class="panel"><div class="row" style="margin-bottom:6px"><h3 style="margin:0">Revisões de hoje</h3><span class="pill g">'+revH.filter(c=>c.status!=='Revisada').length+'</span><span class="sp"></span><span class="tiny muted">'+fmtBR(h,1)+'</span></div>'+
+    (revH.length?revH.map(c=>lin(c)).join(''):'<div class="empty">Nenhuma revisão para hoje.</div>')+
+    (revV.length?'<div class="tiny" style="margin-top:8px;color:var(--red)">Revisões vencidas: '+revV.length+'</div>'+revV.slice(0,4).map(c=>lin(c,'previa '+fmtBR(c.data))).join(''):'')+'</div>';
+  o+='<div class="panel"><div class="row" style="margin-bottom:6px"><h3 style="margin:0">Pendências</h3><span class="pill">'+atr.length+'</span><span class="small muted">atrasado(s)</span><span class="sp"></span><button class="sm pri" data-act="replanAtr"'+(atr.length?'':' disabled')+'>Replanejar atrasados</button></div>'+
+    (atr.length?'<div style="max-height:190px;overflow-y:auto">'+atr.map(c=>'<div class="mini"><div class="t"><div>'+tagMat(c.m)+' '+tagInc(incDe(c))+' '+esc(c.titulo||(TOP[c.t]?TOP[c.t].t.nome:''))+'</div><span class="tiny muted">previsto '+DIAS[dow(c.data)]+' '+fmtBR(c.data)+' · '+fmtHM(c.min)+(c.status?' · '+c.status:'')+'</span></div><button class="sm" data-act="mover" data-id="'+c.id+'">Mover…</button></div>').join('')+'</div>':'<div class="empty">Nada atrasado. 👏</div>')+'</div></div>';
+  return o;
+}
+ACOES.mover=id=>{
+  const c=cardPorId(id);if(!c)return;
+  const ov=modal('<h3>Mover tópico</h3><p class="small">'+tagMat(c.m)+' '+esc(c.titulo||(TOP[c.t]?TOP[c.t].t.nome:''))+'</p><div class="fm"><label>Novo dia<input type="date" id="mvData" min="'+maxS(INICIO,hoje())+'" max="'+FIM_CONTEUDO+'" value="'+maxS(hoje(),INICIO)+'"></label></div><div id="mvErr"></div><div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok>Mover</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;
+  $('[data-ok]',ov).onclick=()=>{
+    const d=$('#mvData').value;const mot=motivoBloqueio(d,c.m,c.min,c.id);
+    if(mot&&!mot.startsWith('Carga')){$('#mvErr').innerHTML='<div class="err">'+mot+'.</div>';return}
+    if(mot&&!confirm(mot+'. Mover mesmo assim?'))return;
+    c.data=d;c.fixo=true;fecharModal();commit();toast('Movido para '+DIAS_L[dow(d)]+' '+fmtBR(d));
+  };
+};
+/* Simula a redistribuição dos atrasados: alta incidência primeiro; próximos dias úteis; respeita 3 disciplinas,
+   carga diária e Português x Informática; pode dividir em blocos de 15 min ou mais; nunca entra na semana final. */
+function simularAtrasados(){
+  const orig=state.cards;state.cards=clone(orig);
+  const late=state.cards.filter(isAtrasado).sort((a,b)=>ORD_INC[incDe(a)]-ORD_INC[incDe(b)]||(a.data<b.data?-1:1));
+  const ini=maxS(hoje(),INICIO),res=[],semEnc=[];
+  for(const L of late){
+    const antes=L.data,minOrig=L.min;let rest=L.min;const pcs=[],criados=[];
+    L.data='__x';                                     // tira do dia original durante a busca
+    for(let d=ini;d<=FIM_CONTEUDO&&rest>0;d=addDias(d,1)){
+      const pc=Math.min(rest,15);
+      if(motivoBloqueio(d,L.m,pc,L.id))continue;
+      const room=state.config.cargaMax-infoDia(d,L.id).carga;
+      let take=Math.min(rest,room);
+      if(take<rest&&rest-take<15)take=rest-15;          // evita sobrar pedaço menor que 15 min
+      if(take<Math.min(15,rest))continue;
+      const nc=pcs.length?{...L,id:uid('c'),data:d,min:take,fixo:true}:Object.assign(L,{data:d,min:take,fixo:true});
+      if(pcs.length){state.cards.push(nc);criados.push(nc.id)}
+      pcs.push({data:d,min:take});rest-=take;
+    }
+    if(rest>0){ // não coube inteiro: desfaz
+      state.cards=state.cards.filter(c=>!criados.includes(c.id));
+      L.data=antes;L.min=minOrig;semEnc.push(L);
+    }else res.push({c:L,de:antes,pcs});
+  }
+  const sim=state.cards;state.cards=orig;
+  return {sim,res,semEnc};
+}
+ACOES.replanAtr=()=>{
+  const {sim,res,semEnc}=simularAtrasados();
+  const ov=modal('<h3>Prévia: replanejar atrasados</h3><p class="small muted">Ordem por incidência (ALTA primeiro). Respeita '+state.config.maxDisc+' disciplinas por dia, carga de '+fmtHM(state.config.cargaMax)+' e a regra Português × Informática. A semana final de revisão não é usada.</p>'+
+    (res.length?'<div class="tw" style="max-height:50vh;overflow:auto"><table><tr><th>Tópico</th><th>Era</th><th>Vai para</th></tr>'+res.map(r=>'<tr><td>'+tagMat(r.c.m)+' '+tagInc(incDe(r.c))+'<div class="small">'+esc(r.c.titulo||(TOP[r.c.t]?TOP[r.c.t].t.nome:''))+'</div></td><td class="small">'+fmtBR(r.de)+'</td><td class="small">'+r.pcs.map(p=>DIAS[dow(p.data)]+' '+fmtBR(p.data)+' ('+fmtHM(p.min)+')').join('<br>')+'</td></tr>').join('')+'</table></div>':'')+
+    (semEnc.length?'<div class="warn" style="margin-top:10px"><b>'+semEnc.length+' tópico(s) ficaram sem encaixe</b> antes da semana final: '+semEnc.map(c=>esc(MAT[c.m].curto)).join(', ')+'. Eles continuam na lista de pendências; você pode movê-los manualmente ou aumentar a carga máxima diária.</div>':'')+
+    '<div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok'+(res.length?'':' disabled')+'>Aplicar ('+res.length+')</button></div>',{wide:true});
+  $('[data-x]',ov).onclick=fecharModal;
+  $('[data-ok]',ov).onclick=()=>{state.cards=sim;fecharModal();commit();toast(res.length+' tópico(s) replanejado(s)'+(semEnc.length?' · '+semEnc.length+' sem encaixe':''))};
+};
+
+/* ---------- Cronômetro integrado (um por vez, com pomodoro opcional) ---------- */
+function tDecorrido(t){t=t||state.timer;if(!t)return 0;return t.acum+(t.inicio?Date.now()-t.inicio:0)}
+function fmtRel(ms){const s=Math.floor(ms/1000);return pad(Math.floor(s/3600))+':'+pad(Math.floor(s/60)%60)+':'+pad(s%60)}
+function htmlTimerBtns(c){
+  const t=state.timer;
+  if(t&&t.cardId===c.id){
+    return '<span class="tiny ft" data-tdisp style="color:var(--accent);margin-right:2px">'+fmtRel(tDecorrido())+'</span>'+
+      (t.inicio?'<button class="ico" title="Pausar" data-act="tPause">⏸</button>':'<button class="ico" title="Continuar" data-act="tPlay" data-id="'+c.id+'">▶</button>')+
+      '<button class="ico" title="Parar e lançar" data-act="tStop">⏹</button>';
+  }
+  return '<button class="ico" title="Iniciar cronômetro" data-act="tPlay" data-id="'+c.id+'">▶</button>';
+}
+ACOES.tPlay=id=>{
+  const t=state.timer;
+  if(t&&t.cardId!==id){toast('Já há um cronômetro ativo ('+MAT[t.m].curto+'). Pare-o antes de iniciar outro.',1);return}
+  const c=cardPorId(id);if(!c){return}
+  if(t){ // retomar
+    if(!t.inicio){t.inicio=Date.now();if(t.fase!=='foco'){t.fase='foco';t.focoBase=t.acum;t.pausaAte=null}}
+  }else{
+    state.timer={cardId:id,m:c.m,t:c.t,inicio:Date.now(),acum:0,pomodoro:!!state.config.pomodoro,fase:'foco',focoBase:0,pausaAte:null};
+    if(!c.status&&c.tipo!=='rev')definirStatus(c,'Iniciado');
+  }
+  commit();
+};
+ACOES.tPause=()=>{const t=state.timer;if(t&&t.inicio){t.acum+=Date.now()-t.inicio;t.inicio=null}commit()};
+ACOES.tStop=()=>{
+  const t=state.timer;if(!t)return;
+  if(t.inicio){t.acum+=Date.now()-t.inicio;t.inicio=null;commit()}
+  const min=Math.max(1,Math.round(t.acum/60000));const c=cardPorId(t.cardId);
+  const ov=modal('<h3>Parar cronômetro</h3><p class="small">'+tagMat(t.m)+' '+esc(c?(c.titulo||(TOP[c.t]?TOP[c.t].t.nome:'')):'')+'</p><p class="small muted">Tempo medido: '+fmtRel(t.acum)+'. Ajuste se precisar antes de lançar.</p><div class="fm">'+
+    '<label>Data<input type="date" id="stData" value="'+hoje()+'"></label><label>Disciplina<select id="stMat">'+optsMaterias(t.m)+'</select></label>'+
+    '<label>Horas (00:00)<input id="stMin" value="'+fmtHM(min).replace('h','')+'"></label></div><div id="stErr"></div>'+
+    '<div class="mft"><button class="dan" data-desc>Descartar tempo</button><span class="sp"></span><button data-x>Continuar depois</button><button class="pri" data-ok>Lançar em Tempo de Estudos</button></div>',{travar:true});
+  $('[data-x]',ov).onclick=()=>{fecharModal();render()};
+  $('[data-desc]',ov).onclick=()=>{if(confirm('Descartar o tempo medido?')){state.timer=null;fecharModal();commit()}};
+  $('[data-ok]',ov).onclick=()=>{
+    const v=parseHM($('#stMin').value),d=$('#stData').value;
+    if(v==null||v<=0||!d){$('#stErr').innerHTML='<div class="err">Informe data e horas válidas (00:00).</div>';return}
+    state.tempos.push({id:uid('t'),data:d,m:$('#stMat').value,min:v,origem:'cronometro',cardId:t.cardId,criado:Date.now()});
+    state.timer=null;fecharModal();commit();toast(fmtHM(v)+' lançadas em Tempo de Estudos');
+  };
+};
+function renderTimerWidget(){
+  const w=$('#timerW'),t=state.timer;
+  if(!t){w.className='timerw';w.innerHTML='';return}
+  const brk=t.fase==='pausa',pronto=t.fase==='pronto';
+  w.className='timerw on'+(brk?' brk':'')+(pronto?' alert':'');
+  let fase='';
+  if(t.pomodoro){
+    if(brk)fase='☕ pausa '+fmtRel(Math.max(0,t.pausaAte-Date.now())).slice(3);
+    else if(pronto)fase='Pausa terminou!';
+    else fase='🍅 '+fmtRel(Math.max(0,state.config.pomoFoco*60000-(tDecorrido()-t.focoBase))).slice(3);
+  }
+  w.innerHTML='<span>'+esc(MAT[t.m]?MAT[t.m].curto:'')+'</span><b data-tdisp>'+fmtRel(tDecorrido())+'</b>'+(fase?'<span class="tiny" data-tfase>'+fase+'</span>':'')+
+    (t.inicio?'<button data-act="tPause" title="Pausar">⏸</button>':'<button data-act="tPlay" data-id="'+t.cardId+'" title="Continuar">▶</button>')+'<button data-act="tStop" title="Parar">⏹</button>';
+}
+function bip(){
+  if(!state.config.som)return;
+  try{const a=new (window.AudioContext||window.webkitAudioContext)();[0,.25,.5].forEach(o=>{const g=a.createGain(),s=a.createOscillator();s.frequency.value=880;s.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.2,a.currentTime+o);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+o+.2);s.start(a.currentTime+o);s.stop(a.currentTime+o+.22)})}catch(e){}
+}
+function tickTimer(){
+  const t=state&&state.timer;if(!t)return;
+  if(t.pomodoro){
+    if(t.fase==='foco'&&t.inicio&&tDecorrido()-t.focoBase>=state.config.pomoFoco*60000){
+      t.acum+=Date.now()-t.inicio;t.inicio=null;t.fase='pausa';t.pausaAte=Date.now()+state.config.pomoPausa*60000;
+      bip();toast('🍅 Foco concluído! Pausa de '+state.config.pomoPausa+' min.');commit();return;
+    }
+    if(t.fase==='pausa'&&Date.now()>=t.pausaAte){t.fase='pronto';bip();toast('⏰ Pausa terminou. Clique ▶ para voltar ao foco.');commit();return}
+  }
+  const v=fmtRel(tDecorrido());$$('[data-tdisp]').forEach(e=>e.textContent=v);
+  if(t.pomodoro)renderTimerWidget();
+}
+setInterval(tickTimer,1000);
+function htmlPomodoroCfg(){
+  const c=state.config;
+  return '<hr style="border:none;border-top:1px solid var(--line);margin:14px 0"><h4>Cronômetro</h4><div class="row small"><label class="row" style="gap:6px"><input type="checkbox" id="pmOn"'+(c.pomodoro?' checked':'')+'> Modo pomodoro</label>'+
+   '<label class="row" style="gap:4px">Foco <input type="number" id="pmFoco" min="5" max="120" value="'+c.pomoFoco+'" style="width:60px"> min</label>'+
+   '<label class="row" style="gap:4px">Pausa <input type="number" id="pmPausa" min="1" max="60" value="'+c.pomoPausa+'" style="width:60px"> min</label>'+
+   '<label class="row" style="gap:6px"><input type="checkbox" id="pmSom"'+(c.som?' checked':'')+'> Aviso sonoro</label></div><p class="tiny muted">Use ▶ ⏸ ⏹ em cada bloco do planejamento. Só um cronômetro por vez; ele continua certo mesmo se você fechar ou recarregar a página.</p>';
+}
+function aoChange3(e){
+  const t=e.target;
+  if(t.id==='pmOn'){state.config.pomodoro=t.checked;if(state.timer){state.timer.pomodoro=t.checked;state.timer.focoBase=tDecorrido()}commit();return}
+  if(t.id==='pmFoco'){state.config.pomoFoco=Math.max(1,+t.value||25);commit();return}
+  if(t.id==='pmPausa'){state.config.pomoPausa=Math.max(1,+t.value||5);commit();return}
+  if(t.id==='pmSom'){state.config.som=t.checked;commit();return}
+  if(t.dataset.revok){const c=cardPorId(t.dataset.revok);if(c){c.status=t.checked?'Revisada':'Pendente';commit()}return}
+  if(t.id==='qMat'){$('#qTop').innerHTML=optsTopicos(t.value,'');return}
+}
+
+/* ---------- Questões: registro e diagnóstico ---------- */
+function optsTopicos(mid,sel){if(!mid||!MAT[mid])return '<option value="">—</option>';return '<option value="">Todos / não informado</option>'+MAT[mid].topicos.map(t=>'<option value="'+t.id+'"'+(t.id===sel?' selected':'')+'>'+esc(t.nome.length>90?t.nome.slice(0,88)+'…':t.nome)+'</option>').join('')}
+const accCls=p=>p<70?'r':p<=80?'y':'g';
+const accTag=(ok,n)=>n?'<span class="acc '+accCls(100*ok/n)+'">'+Math.round(100*ok/n)+'%</span>':'<span class="muted">—</span>';
+function statsQ(filtro){let n=0,ok=0;for(const q of state.questoes)if(filtro(q)){n+=q.total;ok+=q.ok}return {n,ok,p:n?100*ok/n:null}}
+function prioridades(){
+  const h=hoje(),maxP=Math.max(...state.materias.map(m=>m.pesoPrio||m.questoes||1));
+  return state.materias.map(m=>{
+    let N=0,E=0,n=0,ok=0;
+    for(const q of state.questoes)if(q.m===m.id){const w=difDias(q.data,h)<=30?2:1;N+=w*q.total;E+=w*q.err;n+=q.total;ok+=q.ok}
+    const err=(E+.3*10)/(N+10);                         // suavizado: sem dados assume 30% de erro
+    const pn=(m.pesoPrio||m.questoes||1)/maxP,inf=INC_FATOR[m.inc]||.66;
+    const idx=Math.round(100*(.5*err+.3*pn+.2*inf));
+    const partes=[pn>=.55?'Peso alto no edital':pn>=.3?'Peso médio no edital':'Peso baixo no edital'];
+    if(m.inc==='A')partes.push('incidência ALTA');else if(m.inc==='B')partes.push('incidência BAIXA');
+    partes.push(n?Math.round(100*ok/n)+'% de acertos'+(n<state.config.amostraMin?' (amostra pequena)':''):'sem questões registradas');
+    return {m,idx,just:partes.join(' + '),n};
+  }).sort((a,b)=>b.idx-a.idx);
+}
+VIEWS.questoes=function(){
+  const ed=ui.qEdit?state.questoes.find(q=>q.id===ui.qEdit):null;
+  const am=state.config.amostraMin;
+  let o='<h2>Questões: registro e diagnóstico</h2><div class="muted small" style="margin-bottom:12px">Informe dois dos três campos (total, acertos, erros) e o terceiro é calculado. Cores: abaixo de 70% vermelho · 70% a 80% amarelo · acima de 80% verde.</div>';
+  const pr=prioridades();
+  o+='<div class="focus" style="margin-bottom:14px">🎯 Foque mais em: <b>'+pr.slice(0,3).map(x=>esc(x.m.nome)).join('</b>, <b>')+'</b></div>';
+  o+='<div class="grid g2"><div class="panel"><h3>'+(ed?'Editar registro':'Novo registro')+'</h3><div class="fm">'+
+    '<label>Data<input type="date" id="qData" value="'+(ed?ed.data:hoje())+'"></label>'+
+    '<label>Matéria<select id="qMat">'+optsMaterias(ed?ed.m:'','Selecione…')+'</select></label>'+
+    '<label class="full">Assunto (opcional)<select id="qTop">'+optsTopicos(ed?ed.m:'',ed?ed.t:'')+'</select></label>'+
+    '<label>Total resolvido<input type="number" min="0" id="qTot" data-qf value="'+(ed?ed.total:'')+'"></label>'+
+    '<label>Acertos<input type="number" min="0" id="qOk" data-qf value="'+(ed?ed.ok:'')+'"></label>'+
+    '<label>Erros<input type="number" min="0" id="qErr" data-qf value="'+(ed?ed.err:'')+'"></label><span id="qPrev" class="small" style="align-self:end;padding-bottom:6px"></span></div><div id="qMsg"></div>'+
+    '<div class="row"><button class="pri" data-act="qSalvar">'+(ed?'Salvar alteração':'Cadastrar')+'</button>'+(ed?'<button data-act="qCancel">Cancelar</button>':'')+'</div></div>';
+  // ranking
+  const porM=state.materias.map(m=>({m,...statsQ(q=>q.m===m.id)}));
+  const princ=porM.filter(x=>x.n>=am).sort((a,b)=>a.p-b.p),ins=porM.filter(x=>x.n>0&&x.n<am);
+  o+='<div class="panel"><h3>Ranking de desempenho</h3><div class="tiny muted" style="margin-bottom:6px">Da mais fraca para a mais forte · mínimo de '+am+' questões (ajustável em “Folgas e backup”). Clique para detalhar.</div>'+
+    (princ.length?princ.map((x,i)=>'<div class="rk" data-act="qDet" data-id="'+x.m.id+'"><span class="n">'+(i+1)+'</span><span class="dotc" style="--c:'+x.m.cor+'"></span><span class="t">'+esc(x.m.nome)+' <span class="tiny muted">· '+x.n+' questões</span></span>'+accTag(x.ok,x.n)+'</div>').join(''):'<div class="empty">Nenhuma matéria com '+am+'+ questões ainda.</div>')+
+    (ins.length?'<div class="tiny muted" style="margin-top:10px">Amostra insuficiente:</div>'+ins.map(x=>'<div class="rk" data-act="qDet" data-id="'+x.m.id+'"><span class="n">·</span><span class="dotc" style="--c:'+x.m.cor+'"></span><span class="t">'+esc(x.m.nome)+' <span class="tiny muted">· '+x.n+' questões · amostra insuficiente</span></span>'+accTag(x.ok,x.n)+'</div>').join(''):'')+'</div></div>';
+  // prioridade
+  o+='<div class="panel" style="margin-top:14px"><h3>Índice de prioridade de estudo</h3><div class="tiny muted" style="margin-bottom:6px">Combina % de erros (50%, questões dos últimos 30 dias valem o dobro), peso no edital (30%) e incidência na banca (20%). Sem questões, assume 30% de erro.</div>'+
+    pr.map((x,i)=>'<div class="rk" data-act="qDet" data-id="'+x.m.id+'"><span class="n">'+(i+1)+'</span><span class="dotc" style="--c:'+x.m.cor+'"></span><span class="t"><b class="ft small">'+esc(x.m.nome)+'</b><div class="tiny muted">'+esc(x.just)+'</div></span><div style="width:90px"><div class="bar"><i style="width:'+x.idx+'%;background:'+x.m.cor+'"></i></div></div><b class="ft" style="width:30px;text-align:right">'+x.idx+'</b></div>').join('')+'</div>';
+  if(ui.qMat&&MAT[ui.qMat])o+=htmlDetalheQ(ui.qMat);
+  // histórico
+  const hist=state.questoes.slice().sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.criado||0)-(a.criado||0));
+  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+(hist.length?'<div class="tw"><table><tr><th>Data</th><th>Matéria</th><th>Assunto</th><th>Total</th><th>Acertos</th><th>Erros</th><th>%</th><th></th></tr>'+hist.map(q=>'<tr><td>'+fmtBR(q.data,1)+'</td><td>'+(MAT[q.m]?tagMat(q.m):'—')+'</td><td class="small">'+esc(q.t&&TOP[q.t]?TOP[q.t].t.nome:'—')+'</td><td>'+q.total+'</td><td>'+q.ok+'</td><td>'+q.err+'</td><td>'+accTag(q.ok,q.total)+'</td><td style="white-space:nowrap"><button class="ico" data-act="qEditar" data-id="'+q.id+'">✎</button><button class="ico" data-act="qDel" data-id="'+q.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhuma questão registrada.</div>')+'</div>';
+  return o;
+};
+function htmlDetalheQ(mid){
+  const m=MAT[mid];
+  const tops=m.topicos.map(t=>({t,...statsQ(q=>q.m===mid&&q.t===t.id)})).filter(x=>x.n>0);
+  const fracos=tops.slice().sort((a,b)=>a.p-b.p).slice(0,3).map(x=>x.t.id);
+  // evolução semanal
+  const sem={};for(const q of state.questoes)if(q.m===mid){const k=segundaDe(q.data);sem[k]=sem[k]||{n:0,ok:0};sem[k].n+=q.total;sem[k].ok+=q.ok}
+  const ks=Object.keys(sem).sort();
+  let svg='<div class="empty">Sem dados para o gráfico.</div>';
+  if(ks.length){
+    const W=600,H=180,px=34,py=14,x=i=>ks.length===1?W/2:px+i*(W-2*px)/(ks.length-1),y=p=>py+(100-p)*(H-2*py-14)/100;
+    const pts=ks.map((k,i)=>[x(i),y(100*sem[k].ok/sem[k].n),Math.round(100*sem[k].ok/sem[k].n),k]);
+    svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;max-height:220px">'+
+      [0,70,80,100].map(v=>'<line x1="'+px+'" x2="'+(W-px)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="'+(v===70?'#f3b3b5':v===80?'#b6e3cb':'#e5e7ee')+'" stroke-dasharray="'+(v===70||v===80?'4 4':'0')+'"/><text x="4" y="'+(y(v)+4)+'" font-size="10" fill="#6a7284">'+v+'%</text>').join('')+
+      '<polyline fill="none" stroke="'+m.cor+'" stroke-width="2.5" points="'+pts.map(p=>p[0]+','+p[1]).join(' ')+'"/>'+
+      pts.map(p=>'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4" fill="'+m.cor+'"><title>Semana de '+fmtBR(p[3])+': '+p[2]+'%</title></circle><text x="'+p[0]+'" y="'+(p[1]-8)+'" font-size="10" text-anchor="middle" fill="#1c2230">'+p[2]+'%</text><text x="'+p[0]+'" y="'+(H-2)+'" font-size="10" text-anchor="middle" fill="#6a7284">'+fmtBR(p[3])+'</text>').join('')+'</svg>';
+  }
+  return '<div class="panel" style="margin-top:14px;border-top:3px solid '+m.cor+'"><div class="row"><h3 style="margin:0">'+esc(m.nome)+': desempenho por assunto</h3><span class="sp"></span><button class="sm" data-act="qDet" data-id="">Fechar</button></div>'+
+   '<div class="grid g2" style="margin-top:10px"><div>'+(tops.length?'<div class="tw"><table><tr><th>Assunto</th><th>Questões</th><th>%</th></tr>'+tops.sort((a,b)=>a.p-b.p).map(x=>'<tr class="'+(fracos.includes(x.t.id)?'weak':'')+'"><td class="small">'+(fracos.includes(x.t.id)?'⚠ ':'')+esc(x.t.nome)+'</td><td>'+x.n+'</td><td>'+accTag(x.ok,x.n)+'</td></tr>').join('')+'</table></div><div class="tiny muted" style="margin-top:4px">⚠ = 3 assuntos mais fracos</div>':'<div class="empty">Registre questões com o assunto preenchido para ver o desempenho por assunto.</div>')+'</div>'+
+   '<div><h4>Evolução semanal do % de acertos</h4>'+svg+'</div></div></div>';
+}
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t.matches('[data-qf]'))return;
+  t.dataset.auto='';
+  const f={tot:$('#qTot'),ok:$('#qOk'),err:$('#qErr')};
+  const v=k=>f[k].value===''?null:+f[k].value;
+  const auto=Object.keys(f).find(k=>f[k].dataset.auto==='1');
+  const vazios=Object.keys(f).filter(k=>v(k)===null);
+  const alvo=auto||(vazios.length===1?vazios[0]:null);
+  if(alvo&&f[alvo]!==t){
+    const o=Object.keys(f).filter(k=>k!==alvo);
+    if(o.every(k=>v(k)!==null)){
+      const r=alvo==='tot'?v('ok')+v('err'):alvo==='ok'?v('tot')-v('err'):v('tot')-v('ok');
+      f[alvo].value=r;f[alvo].dataset.auto='1';
+    }
+  }
+  const T=v('tot'),O=v('ok');$('#qPrev').innerHTML=T&&O!=null&&O<=T?accTag(O,T):'';
+});
+ACOES.qSalvar=()=>{
+  const data=$('#qData').value,m=$('#qMat').value,t=$('#qTop').value||null;
+  const tot=$('#qTot').value===''?null:+$('#qTot').value,ok=$('#qOk').value===''?null:+$('#qOk').value,er=$('#qErr').value===''?null:+$('#qErr').value;
+  const msg=[];
+  if(!data)msg.push('Informe a data.');if(!m)msg.push('Escolha a matéria.');
+  if(tot==null||ok==null||er==null)msg.push('Preencha ao menos dois dos campos total, acertos e erros.');
+  else{
+    if([tot,ok,er].some(x=>x<0||!Number.isInteger(x)))msg.push('Use números inteiros não negativos.');
+    if(tot===0)msg.push('O total precisa ser maior que zero.');
+    if(ok+er!==tot)msg.push('Acertos + erros ('+(ok+er)+') ≠ total ('+tot+'). Cadastro bloqueado.');
+  }
+  if(msg.length){$('#qMsg').innerHTML='<div class="err" style="margin-bottom:8px">'+msg.join(' ')+'</div>';return}
+  if(ui.qEdit){Object.assign(state.questoes.find(q=>q.id===ui.qEdit),{data,m,t,total:tot,ok,err:er});ui.qEdit=null;toast('Registro atualizado')}
+  else{state.questoes.push({id:uid('q'),data,m,t,total:tot,ok,err:er,criado:Date.now()});toast('Questões cadastradas: '+Math.round(100*ok/tot)+'% de acertos')}
+  commit();
+};
+ACOES.qCancel=()=>{ui.qEdit=null;render()};
+ACOES.qEditar=id=>{ui.qEdit=id;render();window.scrollTo(0,$('#main').offsetTop-80)};
+ACOES.qDel=id=>confirmar('Excluir este registro de questões?',()=>{state.questoes=state.questoes.filter(q=>q.id!==id);commit()},'Excluir');
+ACOES.qDet=id=>{ui.qMat=id||null;render()};
+
 
 /*@@ETAPA4@@*/
 
