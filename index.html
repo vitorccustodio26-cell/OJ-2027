@@ -111,7 +111,7 @@ main{max-width:1400px;margin:0 auto;padding:14px 16px 60px}
 
 /* tags */
 .tag{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;line-height:1.5;white-space:nowrap}
-.tag.mat{background:color-mix(in srgb,var(--c) 15%,#fff);color:color-mix(in srgb,var(--c) 75%,#000)}
+.tag.tm{background:color-mix(in srgb,var(--c) 15%,#fff);color:color-mix(in srgb,var(--c) 75%,#000)}
 .tag.A{background:#fde8ea;color:#b4232a}.tag.M{background:#fdf1dc;color:#9a6200}.tag.B{background:#e8f1fb;color:#2a5f9e}
 .tag.rev{background:#ede7ff;color:#5b3fd1}
 .tag.late{background:var(--red);color:#fff}
@@ -134,7 +134,7 @@ main{max-width:1400px;margin:0 auto;padding:14px 16px 60px}
 .card.isdone .ttl{text-decoration:line-through;text-decoration-color:#9aa0ad}
 .card.islate{border-color:#f3b3b5;border-left-color:var(--red);background:#fffafa}
 .card.isrev{border-left-style:dashed}
-.card .tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+.card .tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:5px}
 .card .ttl{font-size:12.5px;font-weight:500;margin-bottom:6px;word-break:break-word}
 .card .ttl small{color:var(--muted);font-weight:400}
 .card .ctl{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
@@ -145,6 +145,7 @@ main{max-width:1400px;margin:0 auto;padding:14px 16px 60px}
 .empty{font-size:12px;color:var(--muted);text-align:center;padding:14px 4px}
 .kb{grid-template-columns:repeat(5,minmax(0,1fr))}
 .kb4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kb4 .col{max-height:640px;overflow-y:auto}
 
 /* blocks */
 .blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:12px}
@@ -642,6 +643,15 @@ function replanejar(deParam){
     for(const p of mg)novos.push({id:uid('c'),tipo:'estudo',m:m.id,t:p.t,data:p.data,min:Math.max(10,Math.round(p.min/5)*5),status:'',metodo:''});
   }
   state.cards.push(...novos);
+  // nunca ultrapassar a carga diária por arredondamento
+  const dias=[...new Set(novos.map(c=>c.data))];
+  for(const d of dias){
+    let exc=infoDia(d).carga-state.config.cargaMax;
+    while(exc>0){
+      const alvo=novos.filter(c=>c.data===d&&c.min>10).sort((a,b)=>b.min-a.min)[0];if(!alvo)break;
+      const r=Math.min(exc,alvo.min-10);alvo.min-=r;exc-=r;
+    }
+  }
   if(typeof reposicionarRevisoes==='function')reposicionarRevisoes(de);
 }
 function tituloFinal(m){return 'Revisão geral: tópicos de incidência ALTA, mapas e erros das questões'}
@@ -677,6 +687,7 @@ function setSaveSt(k){
 function commit(){indexar();agendarSalvar();render()}
 
 /* ---------- UI: utilidades ---------- */
+const ACOES={};
 function toast(msg,erro){const t=document.createElement('div');t.className='toast'+(erro?' e':'');t.textContent=msg;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),erro?5000:3200)}
 function modal(html,opts={}){
   fecharModal();
@@ -690,7 +701,7 @@ function confirmar(msg,ok,txtOk='Confirmar',perigo=true){
   const ov=modal('<h3>Confirmar</h3><p>'+msg+'</p><div class="mft"><button data-x>Cancelar</button><button class="'+(perigo?'pri':'pri')+'" data-ok>'+esc(txtOk)+'</button></div>');
   $('[data-x]',ov).onclick=fecharModal;$('[data-ok]',ov).onclick=()=>{fecharModal();ok()};
 }
-const tagMat=m=>'<span class="tag mat" style="--c:'+MAT[m].cor+'">'+esc(MAT[m].curto)+'</span>';
+const tagMat=m=>'<span class="tag tm" style="--c:'+MAT[m].cor+'">'+esc(MAT[m].curto)+'</span>';
 const tagInc=i=>'<span class="tag '+i+'" title="Incidência estimada na VUNESP">'+INC_NOME[i]+'</span>';
 function optsMaterias(sel,vazio){return (vazio?'<option value="">'+vazio+'</option>':'')+state.materias.map(m=>'<option value="'+m.id+'"'+(m.id===sel?' selected':'')+'>'+esc(m.nome)+'</option>').join('')}
 function optsInc(sel){return ['A','M','B'].map(i=>'<option value="'+i+'"'+(i===sel?' selected':'')+'>'+INC_NOME[i]+'</option>').join('')}
@@ -894,14 +905,135 @@ VIEWS.config=function(){
   return h;
 };
 
-/*@@ETAPA2@@*/
+/* =================== ETAPA 2: abas de acompanhamento =================== */
+
+/* ---------- Kanban semanal ---------- */
+const COLS_KB=[['','A fazer'],['Iniciado','Iniciado'],['Revisar','Revisar'],['Finalizado','Finalizado'],['rev','Revisões pendentes']];
+function htmlKanban(w,cs){
+  const ord=cs.slice().sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
+  return '<div class="board kb">'+COLS_KB.map(([k,n])=>{
+    const its=ord.filter(c=>k==='rev'?(c.tipo==='rev'&&c.status!=='Revisada'):k==='Finalizado'?(c.status==='Finalizado'||c.status==='Revisada'):(c.tipo!=='rev'&&(c.status||'')===k));
+    return '<div class="col" data-dropst="'+k+'"><div class="colh"><b>'+n+'</b><span class="small muted">'+its.length+'</span></div>'+
+      (its.map(c=>htmlCard(c).replace('<div class="tags">','<div class="tiny muted" style="margin-bottom:4px">📅 '+DIAS[dow(c.data)]+' '+fmtBR(c.data)+'</div><div class="tags">')).join('')||'<div class="empty">Arraste blocos para cá</div>')+'</div>';
+  }).join('')+'</div>';
+}
+function soltarKanban(id,st){
+  const c=cardPorId(id);if(!c)return;
+  if(c.tipo==='rev'){
+    if(st==='Finalizado')definirStatus(c,'Revisada');else if(st==='rev')definirStatus(c,'Pendente');
+    else{toast('Revisões só podem ir para “Revisões pendentes” ou “Finalizado”',1);return}
+  }else{
+    if(st==='rev'){toast('Esta coluna é só para revisões',1);return}
+    definirStatus(c,st);
+  }
+  commit();
+}
+
+/* ---------- Estatísticas ---------- */
+const COLS_T=[['','Não iniciado'],['Iniciado','Iniciado'],['Revisar','Revisar'],['Finalizado','Finalizado']];
+function pctTop(ts){const f=ts.filter(t=>statusTopico(t.id)==='Finalizado').length;return {f,n:ts.length,p:ts.length?Math.round(100*f/ts.length):0}}
+VIEWS.stats=function(){
+  const tops=state.materias.flatMap(m=>m.topicos);
+  const tot=pctTop(tops);
+  const ws=semanas(),ci=semanaAtualIdx(),w=ws[ci];
+  const csW=state.cards.filter(c=>c.tipo!=='rev'&&c.data>=w.mon&&c.data<=w.fim),fW=csW.filter(c=>c.status==='Finalizado').length;
+  const pW=csW.length?Math.round(100*fW/csW.length):0;
+  const revs=state.cards.filter(c=>c.tipo==='rev'),revF=revs.filter(c=>c.status==='Revisada').length;
+  const h=hoje();const planAte=state.cards.filter(c=>c.tipo!=='rev'&&c.data<=h).reduce((a,c)=>a+c.min,0);
+  const estud=state.tempos.reduce((a,t)=>a+t.min,0);
+  const atr=state.cards.filter(isAtrasado).length;
+  let o='<h2>Estatísticas de incidência e progresso</h2><div class="muted small" style="margin-bottom:12px">Atualiza automaticamente sempre que um tópico vai para “Finalizado”. Arraste os tópicos no quadro abaixo para mudar o status.</div>';
+  o+='<div class="grid g3" style="margin-bottom:14px">'+
+    kpi(tot.p+'%','Progresso total · '+tot.f+'/'+tot.n+' tópicos',tot.p)+
+    kpi(pW+'%','Semana atual (S'+w.n+') · '+fW+'/'+csW.length+' blocos',pW)+
+    kpi(fmtHM(estud),'Horas lançadas · planejado até hoje: '+fmtHM(planAte),planAte?Math.min(100,Math.round(100*estud/planAte)):0)+
+    kpi(revF+'/'+revs.length,'Revisões espaçadas feitas',revs.length?Math.round(100*revF/revs.length):0)+
+    kpi(String(atr),'Blocos atrasados',0,atr?'var(--red)':'')+'</div>';
+  // por incidência
+  o+='<div class="grid g2" style="margin-bottom:14px"><div class="panel"><h3>Por incidência (estimada)</h3>'+['A','M','B'].map(i=>{const r=pctTop(tops.filter(t=>t.inc===i));return '<div style="margin:10px 0"><div class="row">'+tagInc(i)+'<span class="small muted">'+r.f+'/'+r.n+' tópicos</span><span class="sp"></span><b class="ft">'+r.p+'%</b></div><div class="bar" style="margin-top:5px"><i style="width:'+r.p+'%"></i></div></div>'}).join('')+'</div>';
+  // semanal
+  o+='<div class="panel"><h3>Progresso semanal</h3><div class="muted tiny" style="margin-bottom:8px">% dos blocos planejados de cada semana que estão finalizados</div><div style="display:flex;gap:3px;align-items:flex-end;height:120px">'+ws.map((x,i)=>{
+    const cs=state.cards.filter(c=>c.tipo!=='rev'&&c.data>=x.mon&&c.data<=x.fim);const p=cs.length?Math.round(100*cs.filter(c=>c.status==='Finalizado').length/cs.length):0;
+    return '<div title="'+esc(x.label)+': '+p+'%" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;cursor:pointer" data-sem="'+i+'" data-tab="plan"><div style="height:'+Math.max(2,p)+'%;background:'+(i===ci?'var(--accent)':x.final?'#b9a8f5':'#c7cbe0')+';border-radius:4px 4px 0 0"></div><div class="tiny muted" style="text-align:center">'+x.n+'</div></div>'}).join('')+'</div></div></div>';
+  // por matéria
+  o+='<div class="panel" style="margin-bottom:14px"><h3>Por matéria</h3><div class="grid g3">'+state.materias.map(m=>{const r=pctTop(m.topicos);const a=pctTop(m.topicos.filter(t=>t.inc==='A'));
+    return '<div><div class="row" style="gap:6px"><span class="dotc" style="--c:'+m.cor+'"></span><b class="ft small">'+esc(m.nome)+'</b><span class="sp"></span><b class="ft">'+r.p+'%</b></div><div class="bar" style="margin:5px 0 3px"><i style="width:'+r.p+'%;background:'+m.cor+'"></i></div><div class="tiny muted">'+r.f+'/'+r.n+' tópicos · ALTA: '+a.f+'/'+a.n+'</div></div>'}).join('')+'</div></div>';
+  // quadro kanban de tópicos
+  const filt=tops.filter(t=>(!ui.statsMat||TOP[t.id].m.id===ui.statsMat)&&(!ui.statsInc||t.inc===ui.statsInc));
+  o+='<div class="row" style="margin-bottom:8px"><h3 style="margin:0">Quadro de tópicos</h3><span class="sp"></span><select data-sf="statsMat">'+optsMaterias(ui.statsMat,'Todas as matérias')+'</select><select data-sf="statsInc"><option value="">Todas as incidências</option>'+optsInc(ui.statsInc)+'</select></div>';
+  o+='<div class="board kb4">'+COLS_T.map(([k,n])=>{
+    const its=filt.filter(t=>statusTopico(t.id)===k);
+    return '<div class="col" data-droptst="'+k+'"><div class="colh"><b>'+n+'</b><span class="small muted">'+its.length+'</span></div>'+its.slice(0,150).map(t=>{
+      const m=TOP[t.id].m,cs=cardsDoTopico(t.id),late=cs.some(isAtrasado);
+      return '<div class="card'+(late?' islate':'')+'" draggable="true" data-tcard="'+t.id+'" style="--c:'+m.cor+'"><div class="tags">'+tagMat(m.id)+tagInc(t.inc)+(late?'<span class="tag late">Atrasado</span>':'')+'</div><div class="ttl" style="margin:0">'+esc(t.nome)+'</div><div class="tiny muted">'+(cs.length?cs.length+' bloco(s) · '+fmtBR(cs[0].data)+(cs.length>1?'–'+fmtBR(cs[cs.length-1].data):''):'não agendado')+'</div></div>'}).join('')+(its.length>150?'<div class="empty">+'+(its.length-150)+' tópicos (use os filtros)</div>':'')+(its.length?'':'<div class="empty">—</div>')+'</div>';
+  }).join('')+'</div>';
+  return o;
+};
+function kpi(v,l,p,cor){return '<div class="panel" style="padding:12px 14px"><b class="ft" style="font-size:24px;'+(cor?'color:'+cor:'')+'">'+v+'</b><div class="small muted">'+l+'</div>'+(cor===undefined?'<div class="bar" style="margin-top:8px"><i style="width:'+(p||0)+'%"></i></div>':'')+'</div>'}
+function soltarTopico(id,st){
+  const tid=id.replace(/^T:/,'');const cs=cardsDoTopico(tid);
+  if(!cs.length){toast('Este tópico ainda não está agendado',1);return}
+  const ant=statusTopico(tid);cs.forEach(c=>c.status=st);
+  if(typeof aoMudarStatusTopico==='function')aoMudarStatusTopico(tid,ant,statusTopico(tid));
+  commit();
+}
+
+/* ---------- Tempo de Estudos ---------- */
+VIEWS.tempo=function(){
+  const h=hoje(),ws=semanas(),w=ws[semanaAtualIdx()];
+  const ed=ui.tEdit?state.tempos.find(x=>x.id===ui.tEdit):null;
+  let o='<h2>Tempo de Estudos</h2><div class="muted small" style="margin-bottom:12px">Lançamento diário e manual das horas por disciplina (formato 00:00h). O cronômetro dos blocos também lança aqui automaticamente.</div>';
+  o+='<div class="grid g2"><div class="panel"><h3>'+(ed?'Editar lançamento':'Novo lançamento')+'</h3><div class="fm">'+
+    '<label>Data<input type="date" id="tpData" value="'+(ed?ed.data:h)+'"></label>'+
+    '<label>Disciplina<select id="tpMat">'+optsMaterias(ed?ed.m:'',' Selecione…')+'</select></label>'+
+    '<label>Horas (00:00)<input id="tpMin" placeholder="01:30" inputmode="numeric" value="'+(ed?fmtHM(ed.min).replace('h',''):'')+'"></label>'+
+    '<label>Observação<input id="tpObs" value="'+esc(ed&&ed.obs||'')+'"></label></div><div id="tpErr"></div>'+
+    '<div class="row"><button class="pri" data-act="tpSalvar">'+(ed?'Salvar alteração':'Lançar')+'</button>'+(ed?'<button data-act="tpCancel">Cancelar</button>':'')+'</div>'+
+    (typeof htmlPomodoroCfg==='function'?htmlPomodoroCfg():'')+'</div>';
+  // totais
+  const porM={};state.materias.forEach(m=>porM[m.id]={tot:0,sem:0,hoje:0});
+  for(const t of state.tempos){if(!porM[t.m])continue;porM[t.m].tot+=t.min;if(t.data>=w.mon&&t.data<=addDias(w.mon,6))porM[t.m].sem+=t.min;if(t.data===h)porM[t.m].hoje+=t.min}
+  const plan={};state.materias.forEach(m=>plan[m.id]=0);state.cards.filter(c=>c.tipo!=='rev'&&c.data<=h).forEach(c=>plan[c.m]+=c.min);
+  const T=k=>Object.values(porM).reduce((a,x)=>a+x[k],0);
+  o+='<div class="panel"><h3>Totais por disciplina</h3><div class="tw"><table><tr><th>Disciplina</th><th>Hoje</th><th>Semana S'+w.n+'</th><th>Total</th><th>Planejado até hoje</th></tr>'+
+    state.materias.map(m=>'<tr><td><span class="row" style="gap:6px"><span class="dotc" style="--c:'+m.cor+'"></span>'+esc(m.curto)+'</span></td><td>'+fmtHM(porM[m.id].hoje)+'</td><td>'+fmtHM(porM[m.id].sem)+'</td><td><b>'+fmtHM(porM[m.id].tot)+'</b></td><td class="muted">'+fmtHM(plan[m.id])+'</td></tr>').join('')+
+    '<tr><th>Total</th><th>'+fmtHM(T('hoje'))+'</th><th>'+fmtHM(T('sem'))+'</th><th>'+fmtHM(T('tot'))+'</th><th>'+fmtHM(Object.values(plan).reduce((a,b)=>a+b,0))+'</th></tr></table></div></div></div>';
+  // semana dia a dia
+  o+='<div class="panel" style="margin-top:14px"><h3>Semana atual, dia a dia</h3><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">'+w.dias.map(d=>{const ts=state.tempos.filter(t=>t.data===d);const mn=ts.reduce((a,t)=>a+t.min,0);const pl=state.cards.filter(c=>c.data===d).reduce((a,c)=>a+c.min,0);
+    return '<div class="kpi"><span>'+DIAS[dow(d)]+' '+fmtBR(d)+'</span><b>'+fmtHM(mn)+'</b><span>planejado '+fmtHM(pl)+'</span></div>'}).join('')+'</div></div>';
+  // histórico
+  const hist=state.tempos.slice().sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.criado||0)-(a.criado||0));
+  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+(hist.length?'<div class="tw"><table><tr><th>Data</th><th>Disciplina</th><th>Horas</th><th>Origem</th><th>Obs.</th><th></th></tr>'+hist.map(t=>'<tr><td>'+fmtBR(t.data,1)+'</td><td>'+(MAT[t.m]?tagMat(t.m):'—')+'</td><td><b>'+fmtHM(t.min)+'</b></td><td class="small muted">'+(t.origem==='cronometro'?'⏱ cronômetro':'manual')+'</td><td class="small">'+esc(t.obs||'')+'</td><td style="white-space:nowrap"><button class="ico" data-act="tpEdit" data-id="'+t.id+'">✎</button><button class="ico" data-act="tpDel" data-id="'+t.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhum lançamento ainda.</div>')+'</div>';
+  return o;
+};
+ACOES.tpSalvar=()=>{
+  const data=$('#tpData').value,m=$('#tpMat').value,min=parseHM($('#tpMin').value);
+  const er=[];if(!data)er.push('Informe a data.');if(!m)er.push('Escolha a disciplina.');if(min==null||min<=0)er.push('Horas inválidas: use 00:00 (ex.: 01:30).');
+  if(er.length){$('#tpErr').innerHTML='<div class="err" style="margin-bottom:8px">'+er.join(' ')+'</div>';return}
+  if(ui.tEdit){const t=state.tempos.find(x=>x.id===ui.tEdit);Object.assign(t,{data,m,min,obs:$('#tpObs').value.trim()});ui.tEdit=null;toast('Lançamento atualizado')}
+  else{state.tempos.push({id:uid('t'),data,m,min,obs:$('#tpObs').value.trim(),origem:'manual',criado:Date.now()});toast(fmtHM(min)+' lançadas em '+MAT[m].curto)}
+  commit();
+};
+ACOES.tpEdit=id=>{ui.tEdit=id;render();window.scrollTo(0,$('#main').offsetTop-80)};
+ACOES.tpCancel=()=>{ui.tEdit=null;render()};
+ACOES.tpDel=id=>confirmar('Excluir este lançamento de tempo?',()=>{state.tempos=state.tempos.filter(t=>t.id!==id);commit()},'Excluir');
+// máscara 00:00
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t.matches('#tpMin,#eMin,#nMin,#stMin,#cfCarga'))return;
+  let v=t.value.replace(/\D/g,'').slice(0,4);if(v.length>=3)v=v.slice(0,v.length-2)+':'+v.slice(-2);t.value=v;
+});
+function aoChange(e){
+  const t=e.target;
+  if(t.dataset.sf){ui[t.dataset.sf]=t.value;render();return}
+  if(typeof aoChange3==='function')aoChange3(e);
+}
+
 
 /*@@ETAPA3@@*/
 
 /*@@ETAPA4@@*/
 
 /* ---------- Ações (delegação de eventos) ---------- */
-const ACOES={};
 function cardPorId(id){return state.cards.find(c=>c.id===id)}
 function definirStatus(c,st){
   if(c.tipo==='rev'){c.status=st;return}
@@ -1012,7 +1144,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-tab],[data-sem],[data-vista],[data-act],[data-calnav],[data-calday],[data-matopen]');
   if(!t)return;
   if(e.target.closest('[data-stop]'))return;
-  if(t.dataset.tab){ui.tab=t.dataset.tab;render();window.scrollTo(0,0);return}
+  if(t.dataset.tab){ui.tab=t.dataset.tab;if(t.dataset.sem!=null)ui.semana=+t.dataset.sem;render();window.scrollTo(0,0);return}
   if(t.dataset.sem!=null){ui.semana=+t.dataset.sem;render();return}
   if(t.dataset.vista){ui.vista=t.dataset.vista;render();return}
   if(t.dataset.calnav!=null){
