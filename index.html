@@ -199,7 +199,7 @@ main{max-width:1400px;margin:0 auto;padding:14px 16px 60px}
 .rk .t{flex:1;min-width:0}
 .weak{background:var(--red-soft)}
 .bnr{max-width:1400px;margin:10px auto 0;padding:0 16px}
-.bnr>div{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bnr .row{margin-top:6px}
 
 @media (max-width:1000px){
   .board,.kb,.kb4,.cyc{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -673,11 +673,11 @@ function migrar(d){
   return d;
 }
 let saveTimer=null;
-function salvarDados(){
+var salvarDados=function(){
   state.atualizadoEm=new Date().toISOString();
   try{localStorage.setItem(LS_KEY,JSON.stringify(state));setSaveSt('ok');}
   catch(e){console.error(e);setSaveSt('error');}
-}
+};
 function agendarSalvar(){setSaveSt('saving');clearTimeout(saveTimer);saveTimer=setTimeout(salvarDados,1000)}
 function setSaveSt(k){
   const el=$('#saveSt');if(!el)return;el.className='savest'+(k==='saving'?' saving':k==='error'?' error':'');
@@ -1327,7 +1327,137 @@ ACOES.qDel=id=>confirmar('Excluir este registro de questões?',()=>{state.questo
 ACOES.qDet=id=>{ui.qMat=id||null;render()};
 
 
-/*@@ETAPA4@@*/
+/* =================== ETAPA 4: backup e persistência =================== */
+/* Camada de dados: carregarDados() · salvarDados() · exportarDados() · importarDados()
+   - localStorage a cada alteração (1 s de espera para agrupar);
+   - Chrome/Edge: pasta escolhida pelo usuário (File System Access API) com studyos-dados.json
+     e cópia diária studyos-backup-AAAA-MM-DD.json (mantém as 14 mais recentes);
+   - cópias diárias também no localStorage (14), para "Restaurar versão anterior". */
+const FS_OK=typeof window.showDirectoryPicker==='function';
+const LS_COPIAS='studyos-copias';
+let pasta=null,pastaOk=false,filaGravacao=Promise.resolve();
+
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('studyos',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function idbGet(k){try{const db=await idb();return await new Promise(r=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)})}catch(e){return null}}
+async function idbSet(k,v){try{const db=await idb();await new Promise(r=>{const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);tx.oncomplete=r;tx.onerror=r})}catch(e){}}
+
+function lerCopias(){try{return JSON.parse(localStorage.getItem(LS_COPIAS)||'{}')}catch(e){return {}}}
+function copiaDiariaLocal(json){
+  const d=d2s(new Date()),c=lerCopias();c[d]=json;
+  const ks=Object.keys(c).sort().reverse();ks.slice(14).forEach(k=>delete c[k]);
+  try{localStorage.setItem(LS_COPIAS,JSON.stringify(c))}catch(e){ // sem espaço: mantém menos cópias
+    try{ks.slice(5).forEach(k=>delete c[k]);localStorage.setItem(LS_COPIAS,JSON.stringify(c))}catch(_){}
+  }
+}
+/* substitui o salvarDados da etapa 1 */
+salvarDados=function(){
+  clearTimeout(saveTimer);saveTimer=null;
+  state.atualizadoEm=new Date().toISOString();
+  let json;
+  try{json=JSON.stringify(state);localStorage.setItem(LS_KEY,json);copiaDiariaLocal(json)}
+  catch(e){console.error(e);setSaveSt('error');return}
+  if(pasta&&pastaOk){setSaveSt('saving');filaGravacao=filaGravacao.then(()=>gravarPasta(json)).then(()=>setSaveSt('ok')).catch(e=>{console.error(e);setSaveSt('error');pastaOk=false;renderBanners()})}
+  else setSaveSt('ok');
+};
+async function gravarArq(nome,txt){const fh=await pasta.getFileHandle(nome,{create:true});const w=await fh.createWritable();await w.write(txt);await w.close()}
+async function gravarPasta(json){
+  await gravarArq('studyos-dados.json',json);
+  const d=d2s(new Date());
+  await gravarArq('studyos-backup-'+d+'.json',json);      // cópia do dia (sobrescreve no mesmo dia)
+  const bks=[];for await(const [n,h] of pasta.entries())if(h.kind==='file'&&/^studyos-backup-\d{4}-\d{2}-\d{2}\.json$/.test(n))bks.push(n);
+  bks.sort().reverse().slice(14).forEach(n=>pasta.removeEntry(n).catch(()=>{}));
+  if(state.meta.ultimoBackupExterno!==new Date().toISOString().slice(0,10)){state.meta.ultimoBackupExterno=new Date().toISOString().slice(0,10);try{localStorage.setItem(LS_KEY,JSON.stringify(state))}catch(e){}}
+}
+async function escolherPasta(){
+  if(!FS_OK){toast('Este navegador não permite escolher pasta. Use Exportar backup.',1);return}
+  try{
+    const h=await window.showDirectoryPicker({id:'studyos',mode:'readwrite'});
+    pasta=h;pastaOk=true;await idbSet('pasta',h);state.meta.pastaRecusada=false;
+    // se já houver dados na pasta e forem mais novos, oferece carregar
+    try{const fh=await h.getFileHandle('studyos-dados.json');const d=JSON.parse(await (await fh.getFile()).text());
+      if(d&&d.atualizadoEm&&state.atualizadoEm&&d.atualizadoEm>state.atualizadoEm){fecharModal();confirmar('A pasta já tem um <b>studyos-dados.json</b> mais recente ('+new Date(d.atualizadoEm).toLocaleString('pt-BR')+'). Carregar esses dados no lugar dos atuais?',()=>aplicarDados(d,'Dados da pasta carregados'),'Carregar',false)}
+    }catch(_){}
+    fecharModal();salvarDados();render();toast('Pasta conectada: '+h.name);
+  }catch(e){if(e.name!=='AbortError')toast('Não foi possível usar a pasta: '+e.message,1)}
+}
+async function reconectarPasta(){
+  if(!pasta)return escolherPasta();
+  try{const p=await pasta.requestPermission({mode:'readwrite'});pastaOk=p==='granted';if(pastaOk){salvarDados();toast('Pasta reconectada')}render()}catch(e){toast('Falha ao reconectar: '+e.message,1)}
+}
+function exportarDados(){
+  const json=JSON.stringify(state,null,2),d=d2s(new Date());
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download='studyos-backup-'+d+'.json';
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+  state.meta.ultimoBackupExterno=d;salvarDados();render();toast('Backup exportado');
+}
+function validarDados(d){
+  d=migrar(d);
+  if(!Array.isArray(d.materias)||!d.materias.length||!Array.isArray(d.cards))throw new Error('Estrutura inválida (faltam matérias ou planejamento)');
+  if(d.cards.some(c=>!c||!c.id||!c.data||!c.m))throw new Error('Planejamento com blocos inválidos');
+  return d;
+}
+function resumoDados(d){return '<ul class="small"><li>Salvo em: '+(d.atualizadoEm?new Date(d.atualizadoEm).toLocaleString('pt-BR'):'—')+'</li><li>Versão dos dados: '+d.versao+'</li><li>'+d.cards.length+' blocos · '+d.cards.filter(c=>c.status==='Finalizado').length+' finalizados</li><li>'+(d.questoes||[]).length+' registros de questões · '+(d.tempos||[]).length+' lançamentos de tempo</li></ul>'}
+function aplicarDados(d,msg){state=d;indexar();salvarDados();ui.semana=null;render();toast(msg||'Dados restaurados')}
+function importarDados(arquivo){
+  const r=new FileReader();
+  r.onload=()=>{
+    let d;try{d=validarDados(JSON.parse(r.result))}catch(e){toast('Arquivo inválido: '+e.message,1);return}
+    confirmar('Importar <b>'+esc(arquivo.name)+'</b>? Os dados atuais serão <b>sobrescritos</b>.'+resumoDados(d),()=>aplicarDados(d,'Backup importado'),'Sobrescrever');
+  };
+  r.onerror=()=>toast('Não foi possível ler o arquivo',1);
+  r.readAsText(arquivo);
+}
+ACOES.bkExport=()=>exportarDados();
+ACOES.bkImport=()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=()=>i.files[0]&&importarDados(i.files[0]);i.click()};
+ACOES.bkPasta=()=>escolherPasta();
+ACOES.bkReconectar=()=>reconectarPasta();
+ACOES.bkAgoraNao=()=>{state.meta.pastaRecusada=true;fecharModal();salvarDados();render()};
+ACOES.bkRestaurar=async()=>{
+  const itens=[];const c=lerCopias();
+  for(const k of Object.keys(c).sort().reverse())itens.push({orig:'navegador',nome:'Cópia automática de '+fmtBR(k,1),get:()=>JSON.parse(c[k])});
+  if(pasta&&pastaOk){try{const ns=[];for await(const [n,h] of pasta.entries())if(h.kind==='file'&&/^studyos-backup-.*\.json$/.test(n))ns.push([n,h]);
+    ns.sort((a,b)=>a[0]<b[0]?1:-1).forEach(([n,h])=>itens.push({orig:'pasta',nome:n,get:async()=>JSON.parse(await (await h.getFile()).text())}))}catch(e){}}
+  ACOES._rest=itens;
+  modal('<h3>Restaurar versão anterior</h3><p class="small muted">Backups automáticos (mantidas as 14 cópias diárias mais recentes).</p>'+(itens.length?'<div class="tw"><table>'+itens.map((x,i)=>'<tr><td>'+esc(x.nome)+'</td><td class="small muted">'+(x.orig==='pasta'?'📁 pasta':'🌐 navegador')+'</td><td><button class="sm" data-act="bkRest1" data-id="'+i+'">Restaurar</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhum backup automático ainda.</div>')+'<div class="mft"><button onclick="fecharModal()">Fechar</button></div>');
+};
+ACOES.bkRest1=async i=>{
+  const it=ACOES._rest[+i];let d;
+  try{d=validarDados(await it.get())}catch(e){toast('Backup inválido: '+e.message,1);return}
+  confirmar('Restaurar “'+esc(it.nome)+'”? Os dados atuais serão substituídos.'+resumoDados(d),()=>aplicarDados(d,'Versão anterior restaurada'),'Restaurar');
+};
+function diasSemBackup(){const u=state.meta.ultimoBackupExterno;return u?difDias(u.slice(0,10),d2s(new Date())):null}
+function renderBanners(){
+  const el=$('#banners');if(!el||!state)return;let h='';
+  if(!FS_OK)h+='<div class="warn">⚠ Este navegador não permite gravar em uma pasta do computador: seus dados ficam só no navegador (localStorage). <b>Exporte um backup toda semana.</b> <span class="sp"></span><button class="sm" data-act="bkExport">Exportar backup</button></div>';
+  else if(pasta&&!pastaOk)h+='<div class="warn">📁 A pasta de dados precisa ser reconectada (o navegador pede permissão a cada abertura). <span class="sp"></span><button class="sm pri" data-act="bkReconectar">Reconectar pasta</button></div>';
+  else if(!pasta&&state.meta.pastaRecusada)h+='<div class="warn">Os dados estão só no navegador. Escolha uma pasta para salvar automaticamente o arquivo studyos-dados.json. <span class="sp"></span><button class="sm" data-act="bkPasta">Escolher pasta</button></div>';
+  const ds=diasSemBackup();
+  if(!(pasta&&pastaOk)&&(ds===null||ds>7))h+='<div class="err" style="margin-top:6px">'+(ds===null?'Você ainda não fez nenhum backup externo.':'Mais de 7 dias sem backup externo ('+ds+' dias).')+' <span class="sp"></span><button class="sm" data-act="bkExport">Exportar backup</button></div>';
+  el.innerHTML=h?'<div style="display:block">'+h.replace(/<div class="(warn|err)"/g,'<div class="$1 row"')+'</div>':'';
+}
+function htmlBackup(){
+  const ds=diasSemBackup(),cop=Object.keys(lerCopias()).length;
+  return '<div class="panel" style="margin-top:14px"><h3>Backup e persistência</h3>'+
+   '<div class="grid g2"><div class="small">'+
+   '<p>📦 Todos os dados (planejamento, status, tempo, questões, revisões e configurações) ficam em um único JSON com o campo <code>"versao": '+state.versao+'</code>.</p>'+
+   '<p>🌐 Navegador (localStorage): salvo automaticamente a cada alteração · '+cop+' cópia(s) diária(s) guardada(s).</p>'+
+   '<p>📁 Pasta no computador: '+(!FS_OK?'<b style="color:var(--red)">não suportada neste navegador</b> (use Chrome ou Edge no computador).':pasta?(pastaOk?'<b style="color:var(--green)">conectada</b> (“'+esc(pasta.name)+'”) · grava <code>studyos-dados.json</code> e <code>studyos-backup-AAAA-MM-DD.json</code> (14 mais recentes).':'<b style="color:#8a5a00">aguardando permissão</b>'):'não escolhida.')+'</p>'+
+   '<p>🕒 Último backup externo: '+(state.meta.ultimoBackupExterno?fmtBR(state.meta.ultimoBackupExterno.slice(0,10),1)+(ds!=null?' ('+ds+' dia(s))':''):'nunca')+'</p></div>'+
+   '<div><div class="row" style="margin-bottom:8px"><button class="pri" data-act="bkExport">⬇ Exportar backup</button><button data-act="bkImport">⬆ Importar backup</button><button data-act="bkRestaurar">↺ Restaurar versão anterior</button></div>'+
+   (FS_OK?'<div class="row">'+(pasta&&!pastaOk?'<button data-act="bkReconectar">Reconectar pasta</button>':'')+'<button data-act="bkPasta">'+(pasta?'Trocar pasta':'Escolher pasta')+'</button></div>':'')+
+   '<p class="tiny muted">Dica: escolha uma pasta sincronizada (Google Drive, OneDrive, Dropbox) para ter cópia na nuvem sem plataformas pagas.</p></div></div></div>';
+}
+async function aoIniciar(){
+  window.addEventListener('beforeunload',()=>{if(saveTimer)salvarDados()});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&saveTimer)salvarDados()});
+  if(!FS_OK){renderBanners();return}
+  const h=await idbGet('pasta');
+  if(h){pasta=h;try{pastaOk=(await h.queryPermission({mode:'readwrite'}))==='granted'}catch(e){pastaOk=false}if(pastaOk)salvarDados();render();return}
+  if(!state.meta.pastaRecusada){
+    modal('<h3>Onde salvar seus dados?</h3><p>Escolha uma pasta no seu computador. O StudyOS vai gravar nela o arquivo <b>studyos-dados.json</b> a cada alteração e uma cópia diária <b>studyos-backup-AAAA-MM-DD.json</b> (mantém as 14 mais recentes).</p><p class="small muted">Os dados também ficam salvos no navegador. Você pode mudar isso depois em “Folgas e backup”.</p><div class="mft"><button data-act="bkAgoraNao">Agora não</button><button class="pri" data-act="bkPasta">Escolher pasta</button></div>',{travar:true});
+  }
+}
+
 
 /* ---------- Ações (delegação de eventos) ---------- */
 function cardPorId(id){return state.cards.find(c=>c.id===id)}
