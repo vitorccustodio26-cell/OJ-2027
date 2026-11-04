@@ -1,0 +1,16 @@
+<!-- FIXTURE SINTÉTICA: simula uma página que troca de questão sem recarregar. Só para testar o diagnóstico. -->
+<html><body><div class="questao" id="q"></div>
+<script>
+let n = 1001;
+function render() {
+  document.getElementById('q').innerHTML = '<div class="questao-cabecalho"><a href="/questoes/' + n + '">#' + n + '</a><div class="questao-cabecalho-informacoes-materia"><a href="/materias/portugues">Português</a></div><a class="questao-cabecalho-informacoes-assunto-link">Crase</a></div><ul class="questao-enunciado-alternativas"><li role="radio" id="alt">A</li></ul><button class="botao-resolver" id="resolver">Resolver</button><button id="proxima">Próxima</button>';
+  document.getElementById('resolver').onclick = () => {
+    const d = document.createElement('div');
+    d.className = 'questao-enunciado-mensagem-resolucao mensagem-erro';
+    d.innerHTML = '<i class="fa fa-times"></i> Você errou';
+    document.getElementById('q').appendChild(d);
+  };
+  document.getElementById('proxima').onclick = () => { n++; history.pushState({}, '', '/questoes/' + n); render(); };
+}
+render();
+</script></body></html>

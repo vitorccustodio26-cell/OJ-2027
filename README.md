@@ -13,3 +13,6 @@ Cronograma de estudos em um único arquivo: **`index.html`**. Abra no navegador 
 - Em "Folgas e backup": Exportar, Importar e Restaurar versão anterior.
 
 > As fontes Outfit e DM Sans vêm do Google Fonts. Sem internet, o app usa as fontes do sistema e continua funcionando.
+
+## StudyOS Tracker
+Extensão do navegador em [`studyos-tracker/`](studyos-tracker/README.md) que acompanha sessões de questões no TEC e exporta para o StudyOS.

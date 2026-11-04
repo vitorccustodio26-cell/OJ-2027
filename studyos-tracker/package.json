@@ -1,0 +1,11 @@
+{
+  "name": "studyos-tracker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Extensão pessoal (MV3) que acompanha sessões de questões e envia ao StudyOS.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:extensao": "node tests/e2e-extensao.js",
+    "analisar": "node tools/analisar-arquivos.js"
+  }
+}

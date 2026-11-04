@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnóstico de seletores</title>
+<link rel="stylesheet" href="../estilo.css">
+</head>
+<body class="pagina">
+  <h1>StudyOS Tracker <span class="etiqueta">Etapa 1</span></h1>
+  <p class="nota">Compara páginas reais do TEC com as hipóteses de seletores. Tudo roda localmente nesta página; nada é enviado a lugar nenhum. O relatório não contém enunciado nem alternativas.</p>
+
+  <h2>1. Páginas salvas</h2>
+  <div class="cartao nota">
+    <ol>
+      <li>No TEC, abra uma questão e pressione <b>Ctrl+S</b>. Em "Tipo", escolha <b>"Página da Web, completa"</b> (o modo "somente HTML" salva o código original do servidor, sem a questão renderizada; a pasta <code>_arquivos</code> pode ser apagada, só o .html importa).</li>
+      <li>Salve quatro momentos: antes de responder, depois de acertar, depois de errar, e uma questão já respondida em outro dia (só abrir, sem responder).</li>
+      <li>Escolha cada arquivo abaixo e clique em "Analisar".</li>
+    </ol>
+  </div>
+  <div class="grade" id="entradas"></div>
+  <p><button id="analisar" class="primario" style="width:auto">Analisar</button></p>
+  <div id="resultado"></div>
+
+  <h2>2. Diagnóstico ao vivo (troca de questão sem recarregar)</h2>
+  <div class="cartao nota">
+    Ligue o diagnóstico no ícone da extensão, resolva 2 ou 3 questões navegando com "próxima"/"anterior" e volte aqui. O registro mostra se a página trocou de questão sem recarregar (SPA) e como o feedback apareceu.
+  </div>
+  <p><button id="atualizarLog">Atualizar registro</button> <button id="limparLog">Limpar registro</button></p>
+  <div id="resumoLog" class="nota"></div>
+
+  <h2>3. Relatório para colar na conversa</h2>
+  <p><button id="copiar">Copiar relatório</button> <span id="copiado" class="nota"></span></p>
+  <textarea id="markdown" readonly></textarea>
+
+  <script src="../perfis.js"></script>
+  <script src="../nucleo.js"></script>
+  <script src="../analisador.js"></script>
+  <script src="../relatorio.js"></script>
+  <script src="diagnostico.js"></script>
+</body>
+</html>

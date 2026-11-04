@@ -1,0 +1,27 @@
+:root { --fundo:#ffffff; --texto:#1f2430; --sutil:#5b6475; --borda:#d9dde5; --destaque:#7c3aed; --aviso:#b45309; --ok:#15803d; --erro:#b91c1c; --cartao:#f6f7fa; }
+@media (prefers-color-scheme: dark) {
+  :root { --fundo:#16181d; --texto:#e7e9ee; --sutil:#9aa3b5; --borda:#2c313b; --destaque:#a78bfa; --aviso:#f59e0b; --ok:#4ade80; --erro:#f87171; --cartao:#1e2128; }
+}
+* { box-sizing: border-box; }
+body { margin:0; font: 14px/1.45 system-ui, "Segoe UI", sans-serif; background: var(--fundo); color: var(--texto); }
+body.popup { width: 340px; padding: 12px; }
+body.pagina { max-width: 1000px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 18px 0 8px; }
+.etiqueta { font-size: 11px; color: var(--destaque); border: 1px solid var(--destaque); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
+.nota { color: var(--sutil); font-size: 12.5px; }
+.aviso { color: var(--aviso); font-weight: 600; }
+.linha { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+dl { display: grid; grid-template-columns: 90px 1fr; gap: 2px 8px; margin: 0; }
+dt { color: var(--sutil); }
+dd { margin: 0; word-break: break-word; }
+button { font: inherit; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+button.primario { background: var(--destaque); border-color: var(--destaque); color: #fff; width: 100%; margin-top: 12px; }
+.cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+.ok { color: var(--ok); } .erro { color: var(--erro); } .talvez { color: var(--aviso); }
+textarea { width: 100%; min-height: 220px; font: 12px/1.4 ui-monospace, Consolas, monospace; background: var(--cartao); color: var(--texto); border: 1px solid var(--borda); border-radius: 8px; padding: 8px; }
+code { font: 12px ui-monospace, Consolas, monospace; }
+ol li { margin-bottom: 4px; }
