@@ -89,6 +89,7 @@
     for (const it of itens) {
       const a = it.analise;
       L.push('## ' + (CENARIOS[it.cenario] || it.cenario) + ' — `' + (it.nomeArquivo || 'página ao vivo') + '`');
+      if (it.erro) { L.push('> ✘ Falha ao analisar: ' + it.erro); L.push(''); continue; }
       if (pareceHtmlCru(a, it.meta)) {
         L.push('> ⚠ Este arquivo parece ser só o HTML original, sem a questão renderizada. Salve de novo como **"Página da Web, completa"** (só o .html importa).');
       }
@@ -111,6 +112,13 @@
       for (const [nome, s] of [['botão', a.botaoResolver.seletor], ['alternativas', a.alternativas.itens], ['feedback', a.feedback.seletor], ['cabeçalho', a.cabecalho.seletor], ['matéria', a.materia.seletor], ['assunto', a.assunto.seletor]]) {
         L.push('  - ' + nome + ': ' + s.tentativas.map((t) => '`' + t.seletor + '`=' + t.encontrados).join(', '));
       }
+      if (a.candidatosId && (a.candidatosId.atributos.length || a.candidatosId.textos.length)) {
+        L.push('<details><summary>Candidatos a ID real da questão</summary>');
+        L.push('');
+        for (const c of a.candidatosId.atributos) L.push('- `' + c.estrutura + '` ' + c.atributo + '="' + c.valor + '" → **' + c.numero + '**');
+        if (a.candidatosId.textos.length) L.push('- marcas no texto: ' + a.candidatosId.textos.map((x) => '`' + x + '`').join(' '));
+        L.push('</details>');
+      }
       if (a.candidatos.classes.length) {
         L.push('<details><summary>Estruturas candidatas (classes com nomes sugestivos)</summary>');
         L.push('');
@@ -131,7 +139,7 @@
       L.push('');
       L.push('<details><summary>Eventos</summary>');
       L.push('');
-      for (const e of log) L.push('- ' + new Date(e.t).toLocaleTimeString('pt-BR') + ' [' + e.instancia + '] ' + e.tipo + ' ' + JSON.stringify(e.dados || {}));
+      for (const e of log) L.push('- ' + new Date(e.t).toLocaleTimeString('pt-BR') + ' [' + e.instancia + '] ' + e.tipo + ' ' + (e.url || '') + ' ' + JSON.stringify(e.dados || {}));
       L.push('</details>');
     }
     return L.join('\n');

@@ -15,6 +15,21 @@
   </section>
 
   <section>
+    <h2>Capturar esta página</h2>
+    <p class="nota">Substitui o Ctrl+S: escolha o momento e capture.</p>
+    <div class="linha">
+      <select id="cenario">
+        <option value="antes">Antes de responder</option>
+        <option value="acerto">Depois de acertar</option>
+        <option value="erro">Depois de errar</option>
+        <option value="repetida">Já respondida antes</option>
+      </select>
+      <button id="capturar">Capturar</button>
+    </div>
+    <p id="capturado" class="nota"></p>
+  </section>
+
+  <section>
     <label class="linha"><input type="checkbox" id="diag" disabled> Diagnóstico ao vivo (registra trocas de questão e feedback)</label>
   </section>
 

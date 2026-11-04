@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StudyOS Tracker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Acompanha sessões de questões e envia ao StudyOS. Uso pessoal, somente leitura, sem rede.",
   "permissions": ["storage"],
   "background": { "service_worker": "src/background.js" },

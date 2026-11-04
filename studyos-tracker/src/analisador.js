@@ -117,6 +117,36 @@
     return { classes: Array.from(vistos, ([estrutura, n]) => ({ estrutura, n })), links };
   }
 
+  /**
+   * Onde pode estar o ID real da questão: números de 4+ dígitos em links,
+   * atributos e marcas de texto ("#123456", "Q123456"). Só devolve o número,
+   * o nome do atributo e a estrutura (tag/classe) — nunca texto do enunciado.
+   */
+  function candidatosId(doc) {
+    const out = { atributos: [], textos: [] };
+    const vistos = new Set();
+    const corpo = doc.body || doc.documentElement;
+    if (!corpo) return out;
+    for (const el of q(corpo, '*')) {
+      if (out.atributos.length >= 40) break;
+      for (const at of Array.from(el.attributes || [])) {
+        if (at.name === 'class' || at.name === 'style') continue;
+        const m = String(at.value).match(/(?:questoes?[\/\-_=]|^|[^\d])(\d{5,9})(?:[^\d]|$)/i);
+        if (!m) continue;
+        const chave = at.name + '=' + m[1];
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+        out.atributos.push({ estrutura: descrever(el), atributo: at.name, numero: m[1], valor: String(at.value).slice(0, 80) });
+        if (out.atributos.length >= 40) break;
+      }
+    }
+    const texto = corpo.textContent || '';
+    const re = /(#\s?\d{4,9}|\bQ\s?\d{5,9}\b|\bc[oó]d(?:igo)?\.?\s*:?\s*\d{4,9})/gi;
+    let m;
+    while ((m = re.exec(texto)) && out.textos.length < 20) out.textos.push(m[1].replace(/\s+/g, ' '));
+    return out;
+  }
+
   /** Relatório completo de uma página. */
   function analisarDocumento(doc, perfil) {
     const botao = tentar(doc, perfil.seletores.botaoResolver);
@@ -138,13 +168,14 @@
       id: (function () { const x = lerId(doc, perfil); x.seletor = limpar(x.seletor); return x; })(),
       materia: (function () { const x = lerMateria(doc, perfil); x.seletor = limpar(x.seletor); return x; })(),
       assunto: (function () { const x = lerAssunto(doc, perfil); x.seletor = limpar(x.seletor); return x; })(),
-      candidatos: candidatos(doc)
+      candidatos: candidatos(doc),
+      candidatosId: candidatosId(doc)
     };
   }
 
   function limpar(r) { return { tentativas: r.tentativas, vencedora: r.vencedora, hipotesePrincipalOk: r.hipotesePrincipalOk }; }
 
-  const api = { analisarDocumento, lerFeedback, lerId, lerMateria, lerAssunto };
+  const api = { analisarDocumento, candidatosId, lerFeedback, lerId, lerMateria, lerAssunto };
   ns.analisador = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

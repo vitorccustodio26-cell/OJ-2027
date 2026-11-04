@@ -72,6 +72,37 @@ const { chromium } = require('playwright');
   assert.equal(r.analise.id.valor, '1002');
   assert.equal(r.analise.materia.valor, 'Português');
 
+  // Captura pelo popup (substitui o Ctrl+S).
+  await tec.bringToFront();
+  await popup.evaluate(async () => {
+    const abas = await chrome.tabs.query({});
+    for (const a of abas) {
+      try {
+        const r = await chrome.tabs.sendMessage(a.id, { tipo: 'diag:analisarAgora' });
+        await chrome.runtime.sendMessage({ tipo: 'diag:capturar', item: { cenario: 'erro', nomeArquivo: 'captura teste', meta: { tamanhoTextoCorpo: r.tamanhoTextoCorpo }, analise: r.analise } });
+        return;
+      } catch (e) {}
+    }
+  });
+  await diag.reload();
+  await diag.waitForTimeout(500);
+  assert.match(await diag.innerText('#capturas'), /Depois de errar/);
+  assert.match(await diag.inputValue('#markdown'), /Candidatos a ID real/);
+
+  // Botão "Analisar arquivos": sem arquivo avisa; com arquivo (.html e .mhtml) analisa.
+  await diag.click('#analisar');
+  assert.match(await diag.innerText('#status'), /Nenhum arquivo/);
+  const ins = await diag.$$('input[type=file]');
+  await ins[0].setInputFiles(path.join(__dirname, 'fixtures', 'antes.html'));
+  await ins[1].setInputFiles(path.join(__dirname, 'fixtures', 'acerto.mhtml'));
+  await diag.click('#analisar');
+  await diag.waitForTimeout(500);
+  assert.match(await diag.innerText('#status'), /Pronto: 2 analisado/);
+  const tabela = await diag.innerText('#resultado');
+  assert.match(tabela, /Direito Penal/);
+  assert.match(tabela, /acerto\.mhtml/);
+  assert.doesNotMatch(await diag.inputValue('#markdown'), /Falha ao analisar/);
+
   // Desligar para de registrar.
   await popup.uncheck('#diag');
   await popup.waitForTimeout(300);

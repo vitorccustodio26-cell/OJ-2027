@@ -7,9 +7,26 @@
   chrome.runtime.sendMessage({ tipo: 'diag:estado' }).then((r) => { el('diag').checked = r.ativo; el('diag').disabled = false; });
   el('abrir').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('src/paginas/diagnostico.html') }));
 
-  try {
+  async function lerAba() {
     const [aba] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const r = await chrome.tabs.sendMessage(aba.id, { tipo: 'diag:analisarAgora' });
+    return chrome.tabs.sendMessage(aba.id, { tipo: 'diag:analisarAgora' });
+  }
+
+  el('capturar').addEventListener('click', async () => {
+    try {
+      const r = await lerAba();
+      const c = el('cenario').value;
+      await chrome.runtime.sendMessage({ tipo: 'diag:capturar', item: {
+        cenario: c, nomeArquivo: 'captura ' + new Date().toLocaleTimeString('pt-BR'),
+        meta: { tamanhoTextoCorpo: r.tamanhoTextoCorpo }, analise: r.analise } });
+      el('capturado').textContent = '✔ Capturado: ' + el('cenario').selectedOptions[0].text + '. Veja na página de diagnóstico.';
+    } catch (e) {
+      el('capturado').textContent = '✘ Não consegui ler esta aba. Abra uma questão do TEC (recarregue a aba se a extensão foi instalada/atualizada depois).';
+    }
+  });
+
+  try {
+    const r = await lerAba();
     const a = r.analise;
     const falhou = !a.id.valor || !a.materia.valor;
     el('pagina').innerHTML =

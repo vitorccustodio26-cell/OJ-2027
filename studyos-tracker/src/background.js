@@ -42,6 +42,19 @@ chrome.runtime.onMessage.addListener((msg, _remetente, responder) => {
     case 'diag:ligar':
       gravar(async () => { await chrome.storage.local.set({ diagAtivo: !!msg.ativo }); await atualizarSelo(); }).then(() => responder({ ok: true }));
       return true;
+    case 'diag:capturar':
+      gravar(async () => {
+        const { diagCapturas = [] } = await chrome.storage.session.get('diagCapturas');
+        diagCapturas.push(msg.item);
+        await chrome.storage.session.set({ diagCapturas: diagCapturas.slice(-20) });
+      }).then(() => responder({ ok: true }));
+      return true;
+    case 'diag:capturas':
+      chrome.storage.session.get('diagCapturas').then((r) => responder({ capturas: r.diagCapturas || [] }));
+      return true;
+    case 'diag:limparCapturas':
+      gravar(() => chrome.storage.session.set({ diagCapturas: [] })).then(() => responder({ ok: true }));
+      return true;
     case 'diag:estado':
       chrome.storage.local.get('diagAtivo').then((r) => responder({ ativo: !!r.diagAtivo }));
       return true;

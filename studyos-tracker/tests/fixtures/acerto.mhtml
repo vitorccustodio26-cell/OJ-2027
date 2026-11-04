@@ -1,0 +1,24 @@
+From: <Salvo pelo Blink>
+Subject: Questao
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="text/html";
+	boundary="----MultipartBoundary--abc----"
+
+------MultipartBoundary--abc----
+Content-Type: text/html
+Content-ID: <frame-1>
+Content-Transfer-Encoding: quoted-printable
+
+<!-- FIXTURE SINT=C3=89TICA: montada a partir das HIP=C3=93TESES de seletor=
+es, n=C3=A3o de uma p=C3=A1gina real do TEC. --><html><body><div class=3D"q=
+uestao"><div class=3D"questao-cabecalho"><a href=3D"/questoes/1234567">#123=
+4567</a><div class=3D"questao-cabecalho-informacoes-materia"><a href=3D"/ma=
+terias/direito-penal">Direito Penal</a></div><a class=3D"questao-cabecalho-=
+informacoes-assunto-link" href=3D"#">Crimes contra a pessoa</a></div><p>Enu=
+nciado.</p><ul class=3D"questao-enunciado-alternativas"><li role=3D"radio">=
+A</li><li role=3D"radio">B</li><li role=3D"radio">C</li></ul><button class=
+=3D"botao-resolver">Resolver</button><div class=3D"questao-enunciado-mensag=
+em-resolucao mensagem-acerto"><i class=3D"fa fa-check"></i> Voc=C3=AA acert=
+ou!</div></div></body></html>
+------MultipartBoundary--abc------

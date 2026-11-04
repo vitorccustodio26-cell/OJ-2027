@@ -51,10 +51,16 @@
     const u = ultimoInstantaneo;
     ultimoInstantaneo = s;
     if (!u) return;
-    if (s.id !== u.id) enviar('questao-mudou', { de: u.id, para: s.id, materia: s.materia, assunto: s.assunto, feedbackAoAbrir: s.feedback, resultadoAoAbrir: s.resultado });
+    if (s.id !== u.id) enviar('questao-mudou', { de: u.id, para: s.id, materia: s.materia, assunto: s.assunto, feedbackAoAbrir: s.feedback, feedbackVisivelAoAbrir: s.feedbackVisivel, resultadoAoAbrir: s.resultado, candidatosId: resumoIds() });
     else if (s.feedback !== u.feedback || s.feedbackVisivel !== u.feedbackVisivel || s.resultado !== u.resultado) {
       enviar('feedback-estado', { id: s.id, presente: s.feedback, visivel: s.feedbackVisivel, resultado: s.resultado, fonte: s.fonte, sinais: s.sinais });
     }
+  }
+
+  /** Números candidatos a ID real (só números e nomes de atributo). */
+  function resumoIds() {
+    const c = ns.analisador.candidatosId(document);
+    return { atributos: c.atributos.slice(0, 12).map((x) => x.atributo + '=' + x.numero + ' @' + x.estrutura), textos: c.textos.slice(0, 8) };
   }
 
   function casa(el, seletores) {
@@ -70,15 +76,12 @@
   }
 
   function aoMudar(mutacoes) {
-    for (const m of mutacoes) {
-      for (const n of m.addedNodes) {
-        if (n.nodeType !== 1) continue;
-        const achou = perfil.seletores.feedback.some((s) => { try { return n.matches(s) || n.querySelector(s); } catch (e) { return false; } });
-        if (achou) {
-          const f = ns.analisador.lerFeedback(document, perfil);
-          enviar('feedback-inserido', { estrutura: f.estrutura, sinais: f.sinais, resultado: f.classificacao && f.classificacao.resultado, fonte: f.classificacao && f.classificacao.fonte, conflito: f.classificacao && f.classificacao.conflito });
-        }
-      }
+    // Um único evento por lote de mutações (o Angular insere o mesmo bloco em mais de um nó).
+    const achou = mutacoes.some((m) => Array.from(m.addedNodes).some((n) => n.nodeType === 1 &&
+      perfil.seletores.feedback.some((s) => { try { return n.matches(s) || n.querySelector(s); } catch (e) { return false; } })));
+    if (achou) {
+      const f = ns.analisador.lerFeedback(document, perfil);
+      enviar('feedback-inserido', { id: (ultimoInstantaneo || {}).id, estrutura: f.estrutura, sinais: f.sinais, resultado: f.classificacao && f.classificacao.resultado, fonte: f.classificacao && f.classificacao.fonte, conflito: f.classificacao && f.classificacao.conflito, classesLidas: f.classesLidas });
     }
     clearTimeout(timerDebounce);
     timerDebounce = setTimeout(comparar, 300);
@@ -89,7 +92,7 @@
     ativo = true;
     const nav = (performance.getEntriesByType('navigation')[0] || {}).type || 'desconhecido';
     ultimoInstantaneo = instantaneo();
-    enviar('carregou', Object.assign({ navegacao: nav }, ultimoInstantaneo));
+    enviar('carregou', Object.assign({ navegacao: nav, candidatosId: resumoIds() }, ultimoInstantaneo));
     observador = new MutationObserver(aoMudar);
     observador.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
     document.addEventListener('click', aoClicar, { capture: true, passive: true });
