@@ -357,7 +357,7 @@ details summary{cursor:pointer}
 
 /* ---------- Constantes do concurso ---------- */
 const INICIO='2026-11-04', FIM_CONTEUDO='2027-03-05', REV_INI='2027-03-08', REV_FIM='2027-03-12', FIM='2027-03-13', PROVA='2027-03-14';
-const VERSAO_DADOS=2;
+const VERSAO_DADOS=3;
 const INC_PESO={A:3,M:2,B:1.2};           // peso de tempo por incidência
 const INC_FATOR={A:1,M:.66,B:.33};        // fator no índice de prioridade
 const INC_NOME={A:'ALTA',M:'MÉDIA',B:'BAIXA'};
@@ -624,7 +624,8 @@ function estadoInicial(){
     config:{cargaMax:240,maxDisc:3,amostraMin:20,revMin:{1:15,7:15,30:20},pomodoro:false,pomoFoco:25,pomoPausa:5,som:true},
     timer:null,meta:{ultimoBackupExterno:null,ultimaCopiaDiaria:null},
     prefs:{tema:'auto'},filtros:{atual:{plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[],origem:[]},tempo:{q:'',mats:[],origem:[]}},salvos:[]},
-    metas:{horas:1200,questoes:100,topicos:null,minDia:30,historico:{}},constancia:{maior:0,atualizadoEm:null}/*@@ESTADO_V2@@*/};
+    metas:{horas:1200,questoes:100,topicos:null,minDia:30,historico:{}},constancia:{maior:0,atualizadoEm:null},
+    importacao:{mapMat:{},mapAss:{},sessoes:{},historico:[]}/*@@ESTADO_V2@@*/};
 }
 function indexar(){
   TOP={};MAT={};
@@ -790,7 +791,11 @@ function migrar(d){
     d.filtros=d.filtros||null; // filtros, metas e constância recebem os padrões logo abaixo
     d.versao=2;
   }
-  // futuras migrações: if(d.versao===2){...; d.versao=3}
+  if(d.versao===2){ // v2 -> v3: correspondências TEC, sessões importadas e histórico de importações
+    d.importacao=d.importacao||{mapMat:{},mapAss:{},sessoes:{},historico:[]};
+    d.versao=3;
+  }
+  // futuras migrações: if(d.versao===3){...; d.versao=4}
   const base=estadoInicial();
   for(const k of Object.keys(base))if(d[k]===undefined)d[k]=base[k];
   d.config=Object.assign(base.config,d.config||{});
@@ -800,6 +805,9 @@ function migrar(d){
   if(!Array.isArray(d.filtros.salvos))d.filtros.salvos=[];
   d.metas=Object.assign(base.metas,d.metas||{});d.metas.historico=d.metas.historico||{};
   d.constancia=Object.assign(base.constancia,d.constancia||{});
+  d.importacao=Object.assign(base.importacao,d.importacao||{});
+  for(const k of ['mapMat','mapAss','sessoes'])if(!d.importacao[k]||typeof d.importacao[k]!=='object'||Array.isArray(d.importacao[k]))d.importacao[k]={};
+  if(!Array.isArray(d.importacao.historico))d.importacao.historico=[];
   d.meta=Object.assign(base.meta,d.meta||{});
   return d;
 }
@@ -1121,6 +1129,7 @@ VIEWS.config=function(){
    '</div><div class="row"><button class="pri" data-act="cfSalvar">Salvar preferências</button><button data-act="replanTudo">Redistribuir planejamento futuro</button></div>'+
    '<p class="small muted">“Redistribuir” mantém o que já tem status, foi movido/editado manualmente ou está no passado, e reorganiza o restante a partir de hoje.</p></div></div>';
   if(typeof htmlBackup==='function')h+=htmlBackup();
+  if(typeof htmlHistoricoImp==='function')h+=htmlHistoricoImp();
   if(typeof htmlMapeamentos==='function')h+=htmlMapeamentos();
   return h;
 };
@@ -1203,7 +1212,7 @@ VIEWS.tempo=function(){
   const h=hoje(),ws=semanas(),w=ws[semanaAtualIdx()];
   const ed=ui.tEdit?state.tempos.find(x=>x.id===ui.tEdit):null;
   let o='<h2>Tempo de Estudos</h2><div class="muted small" style="margin-bottom:12px">Lançamento diário e manual das horas por disciplina (formato 00:00h). O cronômetro dos blocos também lança aqui automaticamente.</div>'+
-    '<div class="row" style="margin:-4px 0 12px"><button data-act="impAbrir">⇩ Importar sessões da extensão</button></div>';
+    '<div class="row" style="margin:-4px 0 12px"><button data-act="impAbrir">⇩ Importar sessões da extensão</button><button class="sm" data-act="impHist">Histórico de importações</button></div>';
   o+='<div class="grid g2"><div class="panel"><h3>'+(ed?'Editar lançamento':'Novo lançamento')+'</h3><div class="fm">'+
     '<label>Data<input type="date" id="tpData" value="'+(ed?ed.data:h)+'"></label>'+
     '<label>Disciplina<select id="tpMat">'+optsMaterias(ed?ed.m:'',' Selecione…')+'</select></label>'+
@@ -1472,7 +1481,7 @@ VIEWS.questoes=function(){
   const ed=ui.qEdit?state.questoes.find(q=>q.id===ui.qEdit):null;
   const am=state.config.amostraMin;
   let o='<h2>Questões: registro e diagnóstico</h2><div class="muted small" style="margin-bottom:12px">Informe dois dos três campos (total, acertos, erros) e o terceiro é calculado. Cores: abaixo de 70% vermelho · 70% a 80% amarelo · acima de 80% verde.</div>'+
-    '<div class="row" style="margin:-4px 0 12px"><button data-act="impAbrir">⇩ Importar sessões da extensão</button></div>';
+    '<div class="row" style="margin:-4px 0 12px"><button data-act="impAbrir">⇩ Importar sessões da extensão</button><button class="sm" data-act="impHist">Histórico de importações</button></div>';
   const pr=prioridades();
   const fr3=focoRecomendado().slice(0,3);
   o+='<div class="focus" style="margin-bottom:14px">'+(fr3.length?'🎯 Foque mais em: <b>'+fr3.map(x=>esc(x.m.nome)).join('</b>, <b>')+'</b>':'🎯 Registre mais questões para gerar a recomendação <span style="font-size:13px;opacity:.85">(mínimo de '+am+' questões por matéria)</span>')+'</div>';
@@ -1647,6 +1656,7 @@ ACOES.bkAgoraNao=()=>{state.meta.pastaRecusada=true;fecharModal();salvarDados();
 ACOES.bkRestaurar=async()=>{
   const itens=[];const c=lerCopias();
   for(const k of Object.keys(c).sort().reverse())itens.push({orig:'navegador',nome:'Cópia automática de '+fmtBR(k,1),get:()=>JSON.parse(c[k])});
+  try{for(const x of JSON.parse(localStorage.getItem('studyos-antes-importacao')||'[]'))itens.push({orig:'navegador',nome:'Antes de importar/desfazer · '+new Date(x.quando).toLocaleString('pt-BR'),get:()=>JSON.parse(x.json)})}catch(e){}
   if(pasta&&pastaOk){try{const ns=[];for await(const [n,h] of pasta.entries())if(h.kind==='file'&&/^studyos-backup-.*\.json$/.test(n))ns.push([n,h]);
     ns.sort((a,b)=>a[0]<b[0]?1:-1).forEach(([n,h])=>itens.push({orig:'pasta',nome:n,get:async()=>JSON.parse(await (await h.getFile()).text())}))}catch(e){}}
   ACOES._rest=itens;
@@ -2085,6 +2095,46 @@ function casaTempo(t,f){
   if(f.q.trim()&&!termosOk(f.q,[MAT[t.m]&&MAT[t.m].nome,t.obs,fmtBR(t.data,1)].join(' ')))return false;
   return true;
 }
+/* ---- v3 · Etapa 4: histórico de importações e desfazer ---- */
+function foiEditado(x){
+  const o=x.orig;if(!o)return false;
+  return ['data','m','min','t','total','ok','err'].some(k=>k in o&&o[k]!==x[k]);
+}
+function itensDaImportacao(id){return {t:state.tempos.filter(x=>x.imp&&x.imp.id===id),q:state.questoes.filter(x=>x.imp&&x.imp.id===id)}}
+function htmlHistoricoImp(){
+  const H=impEstado().historico;
+  let h='<div class="panel" style="margin-top:14px" id="histImp"><div class="row"><h3 style="margin:0">Importações da extensão</h3><span class="sp"></span><button class="sm" data-act="impAbrir">⇩ Importar sessões</button></div><div class="tiny muted" style="margin:4px 0 8px">Cada importação pode ser desfeita: os lançamentos dela são removidos e as sessões ficam livres para importar de novo.</div>';
+  if(!H.length)return h+'<div class="empty">Nenhuma importação feita ainda.</div></div>';
+  h+='<div class="tw"><table><tr><th>Data</th><th>Arquivo(s)</th><th>Sessões</th><th>Questões</th><th>Horas</th><th>Situação</th><th></th></tr>'+H.map(x=>{
+    const it=itensDaImportacao(x.id),ed=[...it.t,...it.q].filter(foiEditado).length;
+    return '<tr><td>'+new Date(x.quando).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})+'</td><td class="small">'+x.arquivos.map(esc).join(', ')+'</td><td>'+x.sessoes.length+'</td><td>'+x.questoes+'</td><td>'+fmtHM(x.minutos)+'</td>'+
+      '<td class="small">'+(x.desfeitaEm?'<span class="muted">desfeita em '+new Date(x.desfeitaEm).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})+'</span>':(it.t.length+it.q.length)+' lançamento(s)'+(ed?' · <span style="color:var(--yellow-ink)">'+ed+' editado(s)</span>':''))+'</td>'+
+      '<td>'+(x.desfeitaEm?'':'<button class="sm dan" data-act="impDesfazer" data-id="'+esc(x.id)+'">Desfazer importação</button>')+'</td></tr>'}).join('')+'</table></div>';
+  return h+'</div>';
+}
+ACOES.impHist=()=>{ui.tab='config';render();const el=$('#histImp');if(el)el.scrollIntoView({block:'start'})};
+ACOES.impDesfazer=id=>{
+  const x=impEstado().historico.find(h=>h.id===id);if(!x||x.desfeitaEm)return;
+  const it=itensDaImportacao(id),ed=[...it.t,...it.q].filter(foiEditado);
+  const faltam=(x.tempoIds.length+x.questaoIds.length)-(it.t.length+it.q.length);
+  const ov=modal('<h3>Desfazer importação</h3><p class="small">Serão removidos <b>'+it.t.length+'</b> lançamento(s) de tempo ('+fmtHM(it.t.reduce((a,t)=>a+t.min,0))+') e <b>'+it.q.length+'</b> registro(s) de questões ('+it.q.reduce((a,q)=>a+q.total,0)+' questões) desta importação, e as '+x.sessoes.length+' sessão(ões) ficarão livres para importar de novo. Nada mais é alterado.</p>'+
+    (faltam>0?'<p class="tiny muted">'+faltam+' lançamento(s) desta importação já tinham sido excluídos por você.</p>':'')+
+    (ed.length?'<div class="warn"><b>Atenção: '+ed.length+' lançamento(s) foram editados depois da importação</b> e também serão removidos:<ul class="small" style="margin:6px 0 0;padding-left:18px">'+ed.map(e=>'<li>'+fmtBR(e.data,1)+' · '+esc(MAT[e.m]?MAT[e.m].curto:e.m)+' · '+('min' in e?fmtHM(e.min)+' (era '+fmtHM(e.orig.min)+')':e.total+' questões, '+e.ok+' acertos (era '+e.orig.total+', '+e.orig.ok+')')+'</li>').join('')+'</ul></div>':'')+
+    '<p class="tiny muted">Uma cópia de segurança do estado atual é criada antes.</p><div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok>'+(ed.length?'Remover, inclusive os editados':'Desfazer importação')+'</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;
+  $('[data-ok]',ov).onclick=()=>{
+    let antes;try{antes=JSON.stringify(state);copiaSegurancaImportacao(antes)}catch(e){toast('Não foi possível criar a cópia de segurança; nada foi alterado',1);return}
+    try{
+      const d=JSON.parse(antes),ie=d.importacao;
+      d.tempos=d.tempos.filter(t=>!(t.imp&&t.imp.id===id));
+      d.questoes=d.questoes.filter(q=>!(q.imp&&q.imp.id===id));
+      for(const k of Object.keys(ie.sessoes))if(ie.sessoes[k].imp===id)delete ie.sessoes[k];
+      ie.historico.find(h=>h.id===id).desfeitaEm=new Date().toISOString();
+      conferirConsistencia(d);state=d;indexar();
+    }catch(e){toast('Falha ao desfazer; nada foi alterado: '+e.message,1);return}
+    fecharModal();commit();salvarDados();toast('Importação desfeita');
+  };
+};
 /*@@V3@@*/
 
 /* =================== v2 · ETAPA 4: painel "Hoje" =================== */

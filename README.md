@@ -13,3 +13,6 @@ Cronograma de estudos em um único arquivo: **`index.html`**. Abra no navegador 
 - Em "Folgas e backup": Exportar, Importar e Restaurar versão anterior.
 
 > As fontes Outfit e DM Sans vêm do Google Fonts. Sem internet, o app usa as fontes do sistema e continua funcionando.
+
+## Importar sessões da extensão StudyOS Tracker
+Nas abas **Tempo de Estudos** ou **Questões**, clique em **Importar sessões da extensão** e escolha (ou arraste) os arquivos `.json`. O assistente passa por quatro passos: leitura e validação, correspondência de matérias e assuntos, prévia e gravação. Nada é gravado sem a sua confirmação, e cada importação pode ser desfeita em **Folgas e backup → Importações da extensão**. Há arquivos de exemplo em `exemplos-importacao/`.
