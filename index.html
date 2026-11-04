@@ -261,6 +261,13 @@ i.hm{display:inline-block;width:12px;height:12px;padding:0;margin:0 2px;vertical
 .hm.off{background:var(--heat-off);color:var(--muted)}.hm.fora{background:transparent;color:var(--muted)}.hm.out{visibility:hidden}
 .hm.fut{background:transparent;border:1px dashed var(--line);color:var(--muted)}
 .hm.hoje{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700}
+.hoje{display:flex;flex-direction:column;gap:12px}
+.hoje .blocks{margin-bottom:0}
+.hcount{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.hcount b.big{font-size:40px;line-height:1;color:var(--accent)}
+.hatalhos{gap:6px}
+.hcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:10px}
+.hcards .card{margin-bottom:0}
 /*@@CSS_V2@@*/
 
 /* ===== Tablet (641–1024px): colunas com rolagem horizontal dentro do quadro ===== */
@@ -851,7 +858,7 @@ function renderCalendario(){
   }
   const tot=state.cards.filter(c=>c.tipo==='estudo'),fin=tot.filter(c=>c.status==='Finalizado');
   const tops=state.materias.flatMap(m=>m.topicos),tf=tops.filter(t=>statusTopico(t.id)==='Finalizado').length;
-  const dEst=semanas().flatMap(w=>w.dias).filter(s=>isDiaEstudo(s)&&s>=h&&s<=REV_FIM).length;
+  const dEst=diasEstudoRestantes();
   const pct=tops.length?Math.round(100*tf/tops.length):0;
   $('#calendar').classList.toggle('fechado',!!ui.calFechado);$('#calendar').innerHTML='<div class="calm"><div class="calhead"><button class="ico" data-calnav="-1">‹</button><b>'+nome+'</b><button class="ico" data-calnav="1">›</button><span class="sp"></span><button class="sm" data-calnav="0">Hoje</button><button class="sm tgl" style="display:none" data-act="calTgl">'+(ui.calFechado?'Abrir':'Recolher')+'</button></div><div class="calgrid">'+g+'</div>'+
    '<div class="calleg"><span><i style="background:var(--cd-st)"></i>Estudo</span><span><i style="background:var(--orange-soft)"></i>Folga</span><span><i style="background:var(--violet-soft)"></i>Revisão geral</span><span><i style="background:var(--danger-bg)"></i>Prova</span><span><i style="background:transparent"></i>Fim de semana</span></div></div>'+
@@ -861,7 +868,7 @@ function renderCalendario(){
 }
 
 /* ---------- Abas ---------- */
-const ABAS=[['plan','Planejamento semanal'],['ciclos','Ciclos de estudo'],['materias','Matérias'],['stats','Estatísticas'],['metas','Metas e constância'],['tempo','Tempo de Estudos'],['questoes','Questões'],['config','Folgas e backup']];
+const ABAS=[['hoje','Hoje'],['plan','Planejamento semanal'],['ciclos','Ciclos de estudo'],['materias','Matérias'],['stats','Estatísticas'],['metas','Metas e constância'],['tempo','Tempo de Estudos'],['questoes','Questões'],['config','Folgas e backup']];
 function renderAbas(){
   $('#tabs').innerHTML=ABAS.map(([k,n])=>'<button class="tab'+(ui.tab===k?' on':'')+'" data-tab="'+k+'">'+n+'</button>').join('');
   const prin=BNAV.filter(([k])=>ABAS.some(a=>a[0]===k)),naPrin=prin.some(([k])=>k===ui.tab);
@@ -1455,7 +1462,8 @@ VIEWS.questoes=function(){
   const am=state.config.amostraMin;
   let o='<h2>Questões: registro e diagnóstico</h2><div class="muted small" style="margin-bottom:12px">Informe dois dos três campos (total, acertos, erros) e o terceiro é calculado. Cores: abaixo de 70% vermelho · 70% a 80% amarelo · acima de 80% verde.</div>';
   const pr=prioridades();
-  o+='<div class="focus" style="margin-bottom:14px">🎯 Foque mais em: <b>'+pr.slice(0,3).map(x=>esc(x.m.nome)).join('</b>, <b>')+'</b></div>';
+  const fr3=focoRecomendado().slice(0,3);
+  o+='<div class="focus" style="margin-bottom:14px">'+(fr3.length?'🎯 Foque mais em: <b>'+fr3.map(x=>esc(x.m.nome)).join('</b>, <b>')+'</b>':'🎯 Registre mais questões para gerar a recomendação <span style="font-size:13px;opacity:.85">(mínimo de '+am+' questões por matéria)</span>')+'</div>';
   o+='<div class="grid g2"><div class="panel"><h3>'+(ed?'Editar registro':'Novo registro')+'</h3><div class="fm">'+
     '<label>Data<input type="date" id="qData" value="'+(ed?ed.data:hoje())+'"></label>'+
     '<label>Matéria<select id="qMat">'+optsMaterias(ed?ed.m:'','Selecione…')+'</select></label>'+
@@ -1673,6 +1681,74 @@ async function aoIniciar(){
 
 
 /*@@V2_MODULOS@@*/
+/* =================== v2 · ETAPA 4: painel "Hoje" =================== */
+/* Usa exatamente as mesmas funções das outras abas (sem números próprios), por isso não há divergência. */
+function diasEstudoRestantes(){const h=hoje();return semanas().flatMap(w=>w.dias).filter(s=>isDiaEstudo(s)&&s>=h&&s<=REV_FIM).length}
+function focoRecomendado(){const am=state.config.amostraMin;return prioridades().filter(x=>x.n>=am)}
+function atrasadosPrioritarios(){return state.cards.filter(isAtrasado).sort((a,b)=>ORD_INC[incDe(a)]-ORD_INC[incDe(b)]||(a.data<b.data?-1:1))}
+function htmlFoco(n){
+  const f=focoRecomendado().slice(0,n||2);
+  if(!f.length)return '<div class="empty" style="text-align:left;padding:6px 0">Registre mais questões para gerar a recomendação <span class="tiny">(mínimo de '+state.config.amostraMin+' questões por matéria)</span>.</div>';
+  return f.map(x=>'<div class="rk" data-act="irFoco" data-id="'+x.m.id+'"><span class="dotc" style="--c:'+cv(x.m.id)+'"></span><span class="t"><b class="ft small">'+esc(x.m.nome)+'</b><div class="tiny muted">'+esc(x.just)+'</div></span><b class="ft">'+x.idx+'</b></div>').join('');
+}
+function linhaRev(c){
+  return '<div class="mini"><input type="checkbox" data-revok="'+c.id+'"'+(c.status==='Revisada'?' checked':'')+' aria-label="Marcar revisão como feita">'+
+    '<div class="t"><div>'+tagMat(c.m)+' <span class="tag rev">D+'+c.n+'</span> '+esc(TOP[c.t]?TOP[c.t].t.nome:'')+'</div></div><span class="tiny muted">'+fmtHM(c.min)+'</span></div>';
+}
+VIEWS.hoje=function(){
+  const h=hoje(),dProva=difDias(h,PROVA),uteis=diasEstudoRestantes();
+  const atalhos='<div class="row hatalhos"><button data-act="atQuest">✓ Registrar questões</button><button data-act="atHoras">⏱ Lançar horas</button><button data-act="atTopico">＋ Adicionar tópico</button></div>';
+  let o='<div class="hoje">';
+  // 1. contagem regressiva
+  o+='<div class="panel hcount"><div><div class="tiny muted ft">'+DIAS_L[dow(h)]+', '+fmtBR(h,1)+'</div><div class="row" style="gap:6px;align-items:baseline"><b class="ft big">'+(dProva>0?dProva:0)+'</b><span>dias para a prova <span class="muted">(14/03/2027)</span></span></div><div class="small muted">'+uteis+(uteis===1?' dia útil de estudo restante':' dias úteis de estudo restantes')+'</div></div>'+atalhos+'</div>';
+  const atr=atrasadosPrioritarios();
+  const blocoAtr='<div class="panel"><div class="row" style="margin-bottom:6px"><h3 style="margin:0">Atrasados</h3><span class="pill">'+atr.length+'</span><span class="sp"></span><button class="sm pri" data-act="replanAtr"'+(atr.length?'':' disabled')+'>Replanejar atrasados</button></div>'+
+    (atr.length?atr.slice(0,3).map(c=>'<div class="mini"><div class="t"><div>'+tagMat(c.m)+' '+tagInc(incDe(c))+' '+esc(c.titulo||(TOP[c.t]?TOP[c.t].t.nome:''))+'</div><span class="tiny muted">previsto '+DIAS[dow(c.data)]+' '+fmtBR(c.data)+' · '+fmtHM(c.min)+'</span></div><button class="sm" data-act="mover" data-id="'+c.id+'">Mover…</button></div>').join('')+(atr.length>3?'<div class="tiny muted" style="margin-top:6px">+ '+(atr.length-3)+' na lista de pendências do Planejamento</div>':''):'<div class="empty">Nada atrasado.</div>')+'</div>';
+  const blocoFoco='<div class="panel"><h3>Foco recomendado</h3>'+htmlFoco(2)+'</div>';
+  const blocoSem='<div class="panel"><div class="row"><h3 style="margin:0">Progresso da semana</h3><span class="sp"></span><button class="sm" data-tab="metas">Detalhes</button></div><div style="margin-top:10px">'+htmlMetasSemana(true)+'</div></div>';
+  if(!isDiaEstudo(h)){
+    // dia de descanso: fim de semana, folga, antes do início ou depois do fim
+    let tit='Hoje é dia de descanso',sub=isFolga(h)?'Folga: '+esc(nomeFolga(h)):'Fim de semana';
+    if(h<INICIO){tit='O cronograma ainda não começou';sub='Início em '+DIAS_L[dow(INICIO)].toLowerCase()+', '+fmtBR(INICIO,1)}
+    if(h>REV_FIM){tit=h===PROVA?'Hoje é o dia da prova. Boa prova!':h<PROVA?'Véspera da prova: descanse':'Cronograma concluído';sub=''}
+    const prox=[];for(let d=addDias(h,1);d<=REV_FIM&&prox.length<5;d=addDias(d,1))if(isDiaEstudo(d))prox.push(d);
+    o+='<div class="panel"><h3 style="margin-bottom:2px">'+tit+'</h3><div class="small muted" style="margin-bottom:10px">'+sub+'</div>'+
+      (prox.length?'<h4>Próximos dias de estudo</h4>'+prox.map(d=>{const {cs,subs,carga}=infoDia(d);return '<div class="mini"><b class="ft small" style="width:92px">'+DIAS[dow(d)]+' '+fmtBR(d)+'</b><div class="t row" style="gap:4px">'+[...subs].map(tagMat).join('')+'</div><span class="tiny muted">'+cs.length+' blocos · '+fmtHM(carga)+'</span></div>'}).join(''):'')+'</div>';
+    o+='<div class="blocks">'+blocoAtr+blocoFoco+'</div>'+blocoSem;
+    return o+'</div>';
+  }
+  // 2. meta do dia
+  const hojeCs=state.cards.filter(c=>c.data===h),prev=hojeCs.reduce((a,c)=>a+c.min,0),feitas=minutosDia(h);
+  const subs=[...new Set(hojeCs.map(c=>c.m))],p=prev?Math.min(100,Math.round(100*feitas/prev)):0;
+  o+='<div class="panel"><div class="row"><h3 style="margin:0">Meta do dia</h3><span class="sp"></span><span class="small"><b class="ft">'+fmtHM(feitas)+'</b> <span class="muted">de '+fmtHM(prev)+' previstas</span></span></div>'+
+    '<div class="bar big"><i class="'+(feitas>=prev&&prev?'ok':'')+'" style="width:'+p+'%"></i></div>'+
+    '<div class="row" style="gap:6px;margin-top:6px">'+subs.map(tagMat).join('')+'<span class="tiny muted">'+subs.length+' disciplina'+(subs.length===1?'':'s')+' hoje</span>'+(state.timer?'<span class="tiny" style="color:var(--accent)">⏱ cronômetro em andamento (entra nas horas ao parar)</span>':'')+'</div>'+
+    '<div class="tiny muted" style="margin-top:4px">'+(prev&&feitas<prev?'Faltam '+fmtHM(prev-feitas)+' para a meta de hoje.':prev?'Meta de hoje alcançada ✓':'')+'</div></div>';
+  // 3. tópicos de hoje
+  const tops=hojeCs.filter(c=>c.tipo!=='rev').sort((a,b)=>state.materias.indexOf(MAT[a.m])-state.materias.indexOf(MAT[b.m]));
+  o+='<div class="panel"><div class="row" style="margin-bottom:8px"><h3 style="margin:0">Tópicos de hoje</h3><span class="tiny muted">'+tops.filter(c=>c.status==='Finalizado').length+'/'+tops.length+' finalizados</span><span class="sp"></span><button class="sm" data-act="irSemana">Ver semana</button></div>'+
+    (tops.length?'<div class="hcards">'+tops.map(htmlCard).join('')+'</div>':'<div class="empty">Nenhum tópico planejado para hoje.</div>')+'</div>';
+  // 4. revisões de hoje
+  const revs=hojeCs.filter(c=>c.tipo==='rev');
+  o+='<div class="blocks"><div class="panel"><div class="row" style="margin-bottom:6px"><h3 style="margin:0">Revisões de hoje</h3><span class="pill g">'+revs.filter(c=>c.status!=='Revisada').length+'</span></div>'+(revs.length?revs.map(linhaRev).join(''):'<div class="empty">Nenhuma revisão para hoje.</div>')+'</div>';
+  // 5. atrasados  6. foco
+  o+=blocoAtr+'</div><div class="blocks">'+blocoFoco+blocoSem+'</div>';
+  return o+'</div>';
+};
+ACOES.irSemana=()=>{ui.tab='plan';ui.semana=semanaAtualIdx();render();window.scrollTo(0,0)};
+ACOES.irFoco=mid=>{ui.tab='questoes';ui.qMat=mid;render();const d=$('#main .panel[style*="border-top:3px"]');if(d)d.scrollIntoView({block:'start'})};
+function irFormulario(tab,campo){
+  ui.tab=tab;ui.qEdit=null;ui.tEdit=null;render();
+  const el=$(campo);if(el){el.scrollIntoView({block:'center'});el.focus()}
+}
+ACOES.atQuest=()=>irFormulario('questoes','#qMat');
+ACOES.atHoras=()=>irFormulario('tempo','#tpMat');
+ACOES.atTopico=()=>{
+  const ov=modal('<h3>Adicionar tópico</h3><p class="small muted">Escolha a matéria. O tópico será agendado para hoje ('+fmtBR(hoje())+'), e você pode mudar a data no formulário.</p><div style="display:flex;flex-direction:column;gap:6px">'+state.materias.map(m=>'<button data-m="'+m.id+'" style="text-align:left"><span class="dotc" style="--c:'+cv(m.id)+'"></span> '+esc(m.nome)+'</button>').join('')+'</div><div class="mft"><button data-x>Cancelar</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;
+  $$('[data-m]',ov).forEach(b=>b.onclick=()=>ACOES.topAdd(b.dataset.m,null,{data:hoje()}));
+};
+
 /* =================== v2 · ETAPA 3: metas e constância =================== */
 /* Fonte única dos números: Tempo de Estudos (manual + cronômetro), Questões e tópicos finalizados. */
 function minutosDia(d){let m=0;for(const t of state.tempos)if(t.data===d)m+=t.min;return m}
@@ -1731,7 +1807,7 @@ function htmlMetasSemana(compacto){
     o+='<div class="meta-l"><div class="row" style="gap:6px"><b class="ft small">'+NOMES_META[k]+'</b><span class="ritmo '+rt.k+'">'+rt.t+'</span><span class="sp"></span><span class="small"><b class="ft">'+(k==='horas'?fmtHM(r[k]):r[k])+'</b> <span class="muted">/ '+(k==='horas'?fmtHM(m[k]):m[k])+'</span></span></div>'+
       '<div class="bar big" title="Esperado até agora: '+Math.round(fr*100)+'% da meta"><i class="'+rt.k+'" style="width:'+p+'%"></i><u style="left:'+Math.round(fr*100)+'%"></u></div><div class="tiny muted">'+msg+'</div></div>';
   }
-  o+='<div class="row small" style="margin-top:4px;gap:14px"><span>🔥 Sequência atual: <b class="ft">'+s.atual+'</b> dia'+(s.atual===1?'':'s')+' útil'+(s.atual===1?'':'eis')+'</span><span class="muted">Maior: <b class="ft">'+s.maior+'</b></span>'+(compacto?'':'<span class="muted tiny">Semana S'+w.n+' · '+m.dias+' dia(s) útil(eis) · metas proporcionais aos dias úteis</span>')+'</div>';
+  o+='<div class="row small" style="margin-top:4px;gap:14px"><span>🔥 Sequência atual: <b class="ft">'+s.atual+'</b> '+(s.atual===1?'dia útil':'dias úteis')+'</span><span class="muted">Maior: <b class="ft">'+s.maior+'</b></span>'+(compacto?'':'<span class="muted tiny">Semana S'+w.n+' · '+m.dias+(m.dias===1?' dia útil':' dias úteis')+' · metas proporcionais aos dias úteis</span>')+'</div>';
   return o;
 }
 function htmlHistoricoMetas(){
@@ -1994,7 +2070,7 @@ ACOES.topDel=id=>{
     m.topicos=m.topicos.filter(x=>x.id!==id);state.cards=state.cards.filter(c=>c.t!==id);delete state.finalizadoEm[id];commit();toast('Tópico excluído');
   },'Excluir');
 };
-ACOES.topAdd=mid=>{
+ACOES.topAdd=(mid,el,pre)=>{
   const m=MAT[mid];
   const ov=modal('<h3>Novo tópico · '+esc(m.nome)+'</h3><div class="fm"><label class="full">Nome do tópico<input id="nNome" placeholder="Ex.: Súmulas do STJ sobre citação"></label>'+
    '<label>Incidência estimada<select id="nInc">'+optsInc('M')+'</select></label>'+
@@ -2002,6 +2078,7 @@ ACOES.topAdd=mid=>{
    '<label>Data (se agendar)<input type="date" id="nData" min="'+INICIO+'" max="'+FIM_CONTEUDO+'"></label>'+
    '<label>Duração (h:mm)<input id="nMin" value="00:40"></label></div><div id="nErr"></div><div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok>Adicionar</button></div>');
   $('[data-x]',ov).onclick=fecharModal;
+  if(pre&&pre.data){$('#nModo').value='data';$('#nData').value=pre.data;$('#nNome').focus()}
   $('[data-ok]',ov).onclick=()=>{
     const nome=$('#nNome').value.trim();if(!nome){$('#nErr').innerHTML='<div class="err">Informe o nome.</div>';return}
     const modo=$('#nModo').value,t={id:mid+'-n'+Date.now().toString(36),nome,inc:$('#nInc').value,tam:1,custom:true};
@@ -2125,6 +2202,7 @@ function moverCard(id,dia){
 /* ---------- Inicialização ---------- */
 function iniciar(){
   const d=carregarDados();
+  ui.tab='hoje'; // painel "Hoje" é a tela inicial
   if(d){state=d;indexar()}
   else{state=estadoInicial();indexar();replanejar(INICIO);salvarDados()}
   setSaveSt('ok');
