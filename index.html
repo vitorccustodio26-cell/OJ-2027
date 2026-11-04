@@ -357,7 +357,7 @@ details summary{cursor:pointer}
 
 /* ---------- Constantes do concurso ---------- */
 const INICIO='2026-11-04', FIM_CONTEUDO='2027-03-05', REV_INI='2027-03-08', REV_FIM='2027-03-12', FIM='2027-03-13', PROVA='2027-03-14';
-const VERSAO_DADOS=3;
+const VERSAO_DADOS=4;
 const INC_PESO={A:3,M:2,B:1.2};           // peso de tempo por incidência
 const INC_FATOR={A:1,M:.66,B:.33};        // fator no índice de prioridade
 const INC_NOME={A:'ALTA',M:'MÉDIA',B:'BAIXA'};
@@ -625,11 +625,13 @@ function estadoInicial(){
     timer:null,meta:{ultimoBackupExterno:null,ultimaCopiaDiaria:null},
     prefs:{tema:'auto'},filtros:{atual:{plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[],origem:[]},tempo:{q:'',mats:[],origem:[]}},salvos:[]},
     metas:{horas:1200,questoes:100,topicos:null,minDia:30,historico:{}},constancia:{maior:0,atualizadoEm:null},
-    importacao:{mapMat:{},mapAss:{},sessoes:{},historico:[]}/*@@ESTADO_V2@@*/};
+    importacao:{mapMat:{},mapAss:{},sessoes:{},historico:[]},
+    plano:{modo:'ciclo',ofertaVista:false,concluidasAte:0}/*@@ESTADO_V2@@*/};
 }
 function indexar(){
   TOP={};MAT={};
   for(const m of state.materias){MAT[m.id]=m;for(const t of m.topicos)TOP[t.id]={t,m}}
+  MAT.gen=MAT.gen||{id:'gen',nome:'Revisões e simulados',curto:'Revisão/Simulado',cor:'#64748b',topicos:[]};
 }
 
 /* ---------- Calendário de estudo ---------- */
@@ -650,7 +652,7 @@ function semanas(){
 function semanaDe(s){return semanas().find(w=>s>=w.mon&&s<=addDias(w.mon,6))}
 
 /* ---------- Regras do dia ---------- */
-function cardsDoDia(s,excluirId){return state.cards.filter(c=>c.data===s&&c.id!==excluirId)}
+function cardsDoDia(s,excluirId){return state.cards.filter(c=>c.data===s&&c.id!==excluirId&&!c.previo)}
 function infoDia(s,excluirId){
   const cs=cardsDoDia(s,excluirId);const subs=new Set(cs.map(c=>c.m));
   return {cs,subs,carga:cs.reduce((a,c)=>a+(+c.min||0),0)};
@@ -685,7 +687,7 @@ function parteDe(c){
   const cs=cardsDoTopico(c.t);if(cs.length<2)return '';
   return 'parte '+(cs.findIndex(x=>x.id===c.id)+1)+'/'+cs.length;
 }
-function isAtrasado(c){return c.tipo==='estudo'&&c.status!=='Finalizado'&&c.data<hoje()}
+function isAtrasado(c){return (c.tipo==='estudo'||c.tipo==='meta')&&!c.previo&&c.status!=='Finalizado'&&c.data<hoje()}
 
 /* ---------- Gerador / redistribuidor do planejamento ----------
    Mantém: histórico (antes de "de"), cartões com status, cartões fixados manualmente, revisões.
@@ -693,6 +695,7 @@ function isAtrasado(c){return c.tipo==='estudo'&&c.status!=='Finalizado'&&c.data
    proporcionalmente à incidência (ALTA > MÉDIA > BAIXA) e ao tamanho do tópico. */
 function pesoTopico(t){return (INC_PESO[t.inc]||2)*(t.tam||1)}
 function replanejar(deParam){
+  if(typeof modoMetas==='function'&&modoMetas())return replanejarProtocolo(deParam);
   const de=deParam||maxS(INICIO,hoje());
   const manter=[];
   for(const c of state.cards){
@@ -795,7 +798,11 @@ function migrar(d){
     d.importacao=d.importacao||{mapMat:{},mapAss:{},sessoes:{},historico:[]};
     d.versao=3;
   }
-  // futuras migrações: if(d.versao===3){...; d.versao=4}
+  if(d.versao===3){ // v3 -> v4: modo de planejamento (ciclo semanal ou metas do Protocolo)
+    d.plano=d.plano||{modo:'ciclo',ofertaVista:false,concluidasAte:0};
+    d.versao=4;
+  }
+  // futuras migrações: if(d.versao===4){...; d.versao=5}
   const base=estadoInicial();
   for(const k of Object.keys(base))if(d[k]===undefined)d[k]=base[k];
   d.config=Object.assign(base.config,d.config||{});
@@ -806,6 +813,7 @@ function migrar(d){
   d.metas=Object.assign(base.metas,d.metas||{});d.metas.historico=d.metas.historico||{};
   d.constancia=Object.assign(base.constancia,d.constancia||{});
   d.importacao=Object.assign(base.importacao,d.importacao||{});
+  d.plano=Object.assign(base.plano,d.plano||{});
   for(const k of ['mapMat','mapAss','sessoes'])if(!d.importacao[k]||typeof d.importacao[k]!=='object'||Array.isArray(d.importacao[k]))d.importacao[k]={};
   if(!Array.isArray(d.importacao.historico))d.importacao.historico=[];
   d.meta=Object.assign(base.meta,d.meta||{});
@@ -868,7 +876,7 @@ function renderCalendario(){
     else if(isSemanaFinal(s)){cl+=' rv';tt+=' · Revisão geral'}
     else cl+=' st';
     if(s===h)cl+=' today';
-    const cs=state.cards.filter(c=>c.data===s&&c.tipo!=='rev');
+    const cs=state.cards.filter(c=>c.data===s&&c.tipo!=='rev'&&!c.previo);
     if(cs.length){if(cs.some(isAtrasado))cl+=' late';else if(cs.every(c=>c.status==='Finalizado'))cl+=' done'}
     g+='<div class="'+cl+'" title="'+esc(tt)+'" data-calday="'+s+'">'+d+'</div>';
   }
@@ -937,7 +945,7 @@ function gerarCoresMaterias(){
   if(!state)return;let el=document.getElementById('matCores');
   if(!el){el=document.createElement('style');el.id='matCores';document.head.appendChild(el)}
   let L='',D='';
-  for(const m of state.materias){const p=paletaMateria(m.cor);L+='--c-'+m.id+':'+p.light.c+';--tbg-'+m.id+':'+p.light.tbg+';--tfg-'+m.id+':'+p.light.tfg+';';D+='--c-'+m.id+':'+p.dark.c+';--tbg-'+m.id+':'+p.dark.tbg+';--tfg-'+m.id+':'+p.dark.tfg+';'}
+  for(const m of [...state.materias,MAT.gen||{id:'gen',cor:'#64748b'}]){const p=paletaMateria(m.cor);L+='--c-'+m.id+':'+p.light.c+';--tbg-'+m.id+':'+p.light.tbg+';--tfg-'+m.id+':'+p.light.tfg+';';D+='--c-'+m.id+':'+p.dark.c+';--tbg-'+m.id+':'+p.dark.tbg+';--tfg-'+m.id+':'+p.dark.tfg+';'}
   el.textContent=':root{'+L+'}:root[data-te=dark]{'+D+'}';
 }
 const cv=id=>'var(--c-'+id+')';
@@ -965,9 +973,11 @@ function htmlCard(c){
   const late=isAtrasado(c);
   let cls='card'+(c.status==='Finalizado'||c.status==='Revisada'?' isdone':'')+(late?' islate':'')+(c.tipo==='rev'?' isrev':'');
   if(state.timer&&state.timer.cardId===c.id)cls+=' tact';
-  let tags=tagMat(c.m);
+  let tags=c.m==='gen'?'':tagMat(c.m);
   if(c.tipo==='rev')tags+='<span class="tag rev">Revisão D+'+c.n+'</span>';
-  if(c.tipo==='final')tags+='<span class="tag fin">Revisão geral</span>';
+  if(c.metaN)tags+='<span class="tag cust" title="Meta do Protocolo">M'+c.metaN+'</span>';
+  if(c.mk&&KIND_TX&&KIND_TX[c.mk]&&c.tipo!=='final')tags+='<span class="tag rev">'+KIND_TX[c.mk]+'</span>';
+  if(c.tipo==='final')tags+='<span class="tag fin">'+(c.metaN?'Revisão final':'Revisão geral')+'</span>';
   if(tp)tags+=tagInc(tp.inc);
   if(tp&&tp.custom)tags+='<span class="tag cust">novo</span>';
   if(late)tags+='<span class="tag late">Atrasado</span>';
@@ -994,14 +1004,14 @@ VIEWS.plan=function(){
   if(ui.semana==null||ui.semana>=ws.length)ui.semana=semanaAtualIdx();
   const w=ws[ui.semana],cur=semanaAtualIdx();
   const f=F('plan'),fa=filtroAtivo('plan'),ep=escopoPlan(w);
-  const todos=state.cards.filter(c=>c.data>=ep.de&&c.data<=ep.ate);
+  const todos=state.cards.filter(c=>!c.previo&&c.data>=ep.de&&c.data<=ep.ate);   // metas feitas antes ficam no histórico (Matérias, Estatísticas, lista de metas)
   const vis=fa?todos.filter(c=>casaPlan(c,f)):todos;
   let h='';
   if(typeof htmlBlocosTopo==='function')h+=htmlBlocosTopo();
   h+='<div class="panel" style="margin-bottom:12px;padding:12px">'+htmlFiltroBar('plan',fa?vis.length+' de '+todos.length+' tópicos':'','Buscar por tópico, assunto ou nota…')+'</div>';
   if(!ep.per){
     h+='<div class="subtabs">'+ws.map((x,i)=>'<button class="subtab'+(i===ui.semana?' on':'')+(i===cur?' cur':'')+(x.final?' fin':'')+'" data-sem="'+i+'">'+(x.final?'Revisão final · ':'')+x.label+'</button>').join('')+'</div>';
-    const cs=state.cards.filter(c=>c.data>=w.mon&&c.data<=w.fim);
+    const cs=state.cards.filter(c=>!c.previo&&c.data>=w.mon&&c.data<=w.fim);
     const est=cs.filter(c=>c.tipo!=='rev'),fin=est.filter(c=>c.status==='Finalizado').length;
     const carga=cs.reduce((a,c)=>a+c.min,0);
     h+='<div class="row" style="margin-bottom:10px"><div><h2>Semana '+w.n+(w.final?' · Revisão geral':'')+'</h2><div class="muted small">'+fmtBR(w.ini,1)+' a '+fmtBR(w.fim,1)+' · '+cs.length+' blocos · '+fmtHM(carga)+' planejadas · '+fin+'/'+est.length+' finalizados</div></div><span class="sp"></span>'+
@@ -1040,6 +1050,7 @@ function htmlDias(w,opt){
 
 /* ---------- Aba: Ciclos de estudo ---------- */
 VIEWS.ciclos=function(){
+  if(modoMetas())return '<h2>Ciclos de estudo · metas</h2><div class="muted small" style="margin-bottom:12px">O planejamento segue as metas do Protocolo. O ciclo semanal fica guardado e volta se você sair do modo por metas.</div>'+htmlProtocolo();
   const c=state.ciclo;
   const val=validarCiclo(c);
   let h='<div class="row" style="margin-bottom:10px"><div><h2>Ciclo semanal de estudos</h2><div class="muted small">Blocos de cada dia útil, sem horário fixo. Carga alvo de 3h a 4h/dia (o espaço restante até '+fmtHM(state.config.cargaMax)+' recebe revisões).</div></div><span class="sp"></span><button data-act="cicloPadrao">Restaurar padrão</button><button class="pri" data-act="cicloAplicar">Aplicar e redistribuir</button></div>';
@@ -1398,13 +1409,14 @@ ACOES.tStop=()=>{
   if(t.inicio){t.acum+=Date.now()-t.inicio;t.inicio=null;commit()}
   const min=Math.max(1,Math.round(t.acum/60000));const c=cardPorId(t.cardId);
   const ov=modal('<h3>Parar cronômetro</h3><p class="small">'+tagMat(t.m)+' '+esc(c?(c.titulo||(TOP[c.t]?TOP[c.t].t.nome:'')):'')+'</p><p class="small muted">Tempo medido: '+fmtRel(t.acum)+'. Ajuste se precisar antes de lançar.</p><div class="fm">'+
-    '<label>Data<input type="date" id="stData" value="'+hoje()+'"></label><label>Disciplina<select id="stMat">'+optsMaterias(t.m)+'</select></label>'+
+    '<label>Data<input type="date" id="stData" value="'+hoje()+'"></label><label>Disciplina<select id="stMat">'+optsMaterias(t.m==='gen'?'':t.m,t.m==='gen'?'Escolha a disciplina…':'')+'</select></label>'+
     '<label>Horas (00:00)<input id="stMin" value="'+fmtHM(min).replace('h','')+'"></label></div><div id="stErr"></div>'+
     '<div class="mft"><button class="dan" data-desc>Descartar tempo</button><span class="sp"></span><button data-x>Continuar depois</button><button class="pri" data-ok>Lançar em Tempo de Estudos</button></div>',{travar:true});
   $('[data-x]',ov).onclick=()=>{fecharModal();render()};
   $('[data-desc]',ov).onclick=()=>{if(confirm('Descartar o tempo medido?')){state.timer=null;fecharModal();commit()}};
   $('[data-ok]',ov).onclick=()=>{
     const v=parseHM($('#stMin').value),d=$('#stData').value;
+    if(!$('#stMat').value){$('#stErr').innerHTML='<div class="err">Escolha a disciplina em que o tempo será lançado.</div>';return}
     if(v==null||v<=0||!d){$('#stErr').innerHTML='<div class="err">Informe data e horas válidas (00:00).</div>';return}
     state.tempos.push({id:uid('t'),data:d,m:$('#stMat').value,min:v,origem:'cronometro',cardId:t.cardId,criado:Date.now()});
     state.timer=null;fecharModal();commit();toast(fmtHM(v)+' lançadas em Tempo de Estudos');
@@ -1656,7 +1668,7 @@ ACOES.bkAgoraNao=()=>{state.meta.pastaRecusada=true;fecharModal();salvarDados();
 ACOES.bkRestaurar=async()=>{
   const itens=[];const c=lerCopias();
   for(const k of Object.keys(c).sort().reverse())itens.push({orig:'navegador',nome:'Cópia automática de '+fmtBR(k,1),get:()=>JSON.parse(c[k])});
-  try{for(const x of JSON.parse(localStorage.getItem('studyos-antes-importacao')||'[]'))itens.push({orig:'navegador',nome:'Antes de importar/desfazer · '+new Date(x.quando).toLocaleString('pt-BR'),get:()=>JSON.parse(x.json)})}catch(e){}
+  try{for(const x of JSON.parse(localStorage.getItem('studyos-antes-importacao')||'[]'))itens.push({orig:'navegador',nome:(x.rotulo||'Antes de importar/desfazer')+' · '+new Date(x.quando).toLocaleString('pt-BR'),get:()=>JSON.parse(x.json)})}catch(e){}
   if(pasta&&pastaOk){try{const ns=[];for await(const [n,h] of pasta.entries())if(h.kind==='file'&&/^studyos-backup-.*\.json$/.test(n))ns.push([n,h]);
     ns.sort((a,b)=>a[0]<b[0]?1:-1).forEach(([n,h])=>itens.push({orig:'pasta',nome:n,get:async()=>JSON.parse(await (await h.getFile()).text())}))}catch(e){}}
   ACOES._rest=itens;
@@ -1670,13 +1682,14 @@ ACOES.bkRest1=async i=>{
 function diasSemBackup(){const u=state.meta.ultimoBackupExterno;return u?difDias(u.slice(0,10),d2s(new Date())):null}
 function renderBanners(){
   const el=$('#banners');if(!el||!state)return;let h='';
+  if(state.plano&&state.plano.modo!=='protocolo'&&!state.plano.ofertaVista)h+='<div class="note">📋 <span>Novo: organizar o planejamento pelas <b>97 metas do Protocolo</b> (Mat./RLM e Atualidades na reta final, discursiva após cada matéria).</span><span class="sp"></span><button class="sm pri" data-act="ptOferta">Ver e aplicar…</button></div>';
   const ds0=diasSemBackup();
   if(!FS_OK)h+='<div class="warn">⚠ <span>Este navegador não grava em pasta: os dados ficam só no navegador. <b>Exporte um backup toda semana</b>'+(ds0===null?' (nenhum backup externo ainda)':ds0>7?' (último há '+ds0+' dias)':'')+'.</span><span class="sp"></span><button class="sm" data-act="bkExport">Exportar backup</button></div>';
   else if(pasta&&!pastaOk)h+='<div class="warn">📁 A pasta de dados precisa ser reconectada (o navegador pede permissão a cada abertura). <span class="sp"></span><button class="sm pri" data-act="bkReconectar">Reconectar pasta</button></div>';
   else if(!pasta&&state.meta.pastaRecusada)h+='<div class="warn">Os dados estão só no navegador. Escolha uma pasta para salvar automaticamente o arquivo studyos-dados.json. <span class="sp"></span><button class="sm" data-act="bkPasta">Escolher pasta</button></div>';
   const ds=diasSemBackup();
   if(FS_OK&&!(pasta&&pastaOk)&&(ds===null||ds>7))h+='<div class="err" style="margin-top:6px">'+(ds===null?'Você ainda não fez nenhum backup externo.':'Mais de 7 dias sem backup externo ('+ds+' dias).')+' <span class="sp"></span><button class="sm" data-act="bkExport">Exportar backup</button></div>';
-  el.innerHTML=h?'<div style="display:block">'+h.replace(/<div class="(warn|err)"/g,'<div class="$1 row"')+'</div>':'';
+  el.innerHTML=h?'<div style="display:block">'+h.replace(/<div class="(warn|err|note)"/g,'<div class="$1 row"')+'</div>':'';
 }
 function htmlBackup(){
   const ds=diasSemBackup(),cop=Object.keys(lerCopias()).length;
@@ -2034,10 +2047,10 @@ document.addEventListener('change',e=>{
 });
 /* Cópia de segurança antes de importar (usa o sistema de backup: navegador e, se conectada, a pasta) */
 const LS_PREIMP='studyos-antes-importacao';
-function copiaSegurancaImportacao(json){
+function copiaSegurancaImportacao(json,rotulo){
   const agora=new Date(),nome='studyos-antes-importacao-'+d2s(agora)+'-'+pad(agora.getHours())+pad(agora.getMinutes())+pad(agora.getSeconds())+'.json';
   let lista=[];try{lista=JSON.parse(localStorage.getItem(LS_PREIMP)||'[]')}catch(e){}
-  lista.unshift({nome,quando:agora.toISOString(),json});lista=lista.slice(0,5);
+  lista.unshift({nome,quando:agora.toISOString(),json,rotulo:rotulo||'Antes de importar/desfazer'});lista=lista.slice(0,5);
   localStorage.setItem(LS_PREIMP,JSON.stringify(lista));              // lança erro se não houver espaço: a importação é abortada
   if(typeof pasta!=='undefined'&&pasta&&pastaOk)filaGravacao=filaGravacao.then(()=>gravarArq(nome,json)).catch(e=>console.error(e));
   return nome;
@@ -2136,6 +2149,308 @@ ACOES.impDesfazer=id=>{
   };
 };
 /*@@V3@@*/
+/* =================== v4 · CRONOGRAMA POR METAS (Protocolo) ===================
+   97 metas na ordem do curso, ligadas aos tópicos do edital. Regras do usuário:
+   - Matemática e Raciocínio Lógico só nas 3 semanas antes da semana final (15/02 a 05/03/2027);
+   - Atualidades (fatos do mês) só no último mês (a partir de 15/02/2027);
+   - uma discursiva logo após concluir cada matéria de Conhecimentos Específicos;
+   - semana final (08 a 12/03): só as metas de revisão final e o simulado final.
+   Tipos: c = conteúdo, r = revisão semanal, s = simulado, g = revisão geral, f = revisão final. */
+const PROTO_JANELA='2027-02-15';
+const METAS=[
+ [1,'c','lp',150,'Interpretação de textos; informações literais e inferências; ponto de vista do autor',['lp-1','lp-2','lp-3'],20],
+ [2,'c','pciv',90,'Normas fundamentais e aplicação das normas processuais (CPC 1º a 11; 13 a 18)',['pciv-1','pciv-2'],20],
+ [3,'c','pen',90,'Aplicação da lei penal (CP 1º a 12)',['pen-1'],20],
+ [4,'c','const',180,'Princípios fundamentais; direitos e deveres individuais e coletivos (CF 1º a 5º)',['const-1','const-2','const-3'],20],
+ [5,'c','inf',120,'MS-Windows 10+ e Microsoft 365',['inf-1','inf-2'],15],
+ [6,'c','ppen',90,'Ação penal (CPP 24 a 42)',['ppen-1'],20],
+ [7,'r','gen',150,'Revisão semanal 1 · metas 1 a 6'],
+ [8,'c','mat',150,'Números reais; MMC e MDC; razão e proporção; porcentagem',['mat-1','mat-2','mat-3','mat-4'],15],
+ [9,'c','civ',120,'Pessoas naturais; ausência (CC 1º a 25)',['civ-1','civ-2','civ-3'],20],
+ [10,'c','pciv',150,'Limites da jurisdição; cooperação internacional; competência (CPC 21 a 27; 36; 42 a 53)',['pciv-3','pciv-4'],20],
+ [11,'c','adm',120,'Estatuto SP: conceitos, provimento, posse e exercício (Lei 10.261/68)',['adm-1','adm-2'],20],
+ [12,'c','lp',150,'Classes de palavras: emprego e sentido',['lp-8'],20],
+ [13,'c','leg',120,'Execução fiscal e taxa judiciária SP (Lei 6.830/80; Lei 11.608/03)',['leg-1','leg-3'],20],
+ [14,'r','gen',150,'Revisão semanal 2 · metas 8 a 13'],
+ [15,'c','pen',150,'Ação penal; extinção da punibilidade e prescrição (CP 100 a 120)',['pen-2','pen-3'],20],
+ [16,'c','mat',150,'Raciocínio lógico: estruturas lógicas; lógica de argumentação',['mat-16','mat-14'],15],
+ [17,'c','atu',90,'Atualidades: fatos de janeiro/2026',['atu-1'],10],
+ [18,'c','ppen',150,'Competência; impedimento; medidas assecuratórias (CPP 61 a 74; 112; 125 a 131)',['ppen-2','ppen-3','ppen-4','ppen-5','ppen-6'],20],
+ [19,'c','const',150,'Direitos sociais; nacionalidade; direitos políticos; organização do Estado (CF 6º a 16; 18)',['const-4','const-5','const-6','const-7'],15],
+ [20,'r','gen',150,'Revisão semanal 3 · metas 15 a 19'],
+ [21,'s','gen',120,'Simulado · Marco 1 · 40 questões'],
+ [22,'g','gen',180,'Revisão geral 1 · metas 1 a 19 + banco de erros'],
+ [23,'c','lp',150,'Concordância verbal e nominal',['lp-9'],20],
+ [24,'c','pciv',180,'Citação e intimações (CPC 238 a 259; 269 a 275)',['pciv-20','pciv-21','pciv-22','pciv-23','pciv-24'],20],
+ [25,'c','pen',150,'Crimes de funcionário público contra a Administração (CP 312 a 317)',['pen-11'],20],
+ [26,'c','const',150,'Administração Pública e servidores públicos (CF 37 a 41)',['const-8','const-9'],20],
+ [27,'c','inf',120,'MS-Word',['inf-3','inf-4'],15],
+ [28,'c','ppen',180,'Prisão em flagrante, preventiva e emprego de força (CPP 283 a 303)',['ppen-12','ppen-13'],20],
+ [29,'r','gen',150,'Revisão semanal 4 · metas 23 a 28'],
+ [30,'c','civ',150,'Domicílio e bens (CC 70 a 103)',['civ-5','civ-6'],20],
+ [31,'c','pciv',180,'Atos processuais, prazos e comunicação dos atos (CPC 203 a 232)',['pciv-17','pciv-18','pciv-19'],20],
+ [32,'c','pen',150,'Crimes contra a Administração (CP 319 a 333)',['pen-12','pen-13'],20],
+ [33,'c','adm',150,'Estatuto SP: vencimentos, licenças, deveres, penalidades + Improbidade (Lei 8.429/92)',['adm-3','adm-4','adm-5'],20],
+ [34,'c','lp',150,'Regência verbal e nominal; crase',['lp-10','lp-12'],20],
+ [35,'c','leg',120,'Res. CNJ 354/2020 + NSCGJ Caps. I e III',['leg-2','leg-4','leg-5'],15],
+ [36,'r','gen',150,'Revisão semanal 5 · metas 30 a 35'],
+ [37,'c','ppen',150,'Citações e intimações no processo penal (CPP 351 a 363; 370 a 372)',['ppen-14','ppen-15'],20],
+ [38,'c','mat',150,'Regra de três simples e composta; médias; juros simples',['mat-5','mat-6','mat-7'],15],
+ [39,'c','atu',90,'Atualidades: fatos de fevereiro/2026',['atu-2'],10],
+ [40,'c','civ',150,'Representação; defeitos do negócio jurídico (CC 115 a 120; 138 a 159)',['civ-7','civ-8'],20],
+ [41,'c','atu',150,'Estatuto da Pessoa com Deficiência (Lei 13.146/15)',['atu-3','atu-4'],20],
+ [42,'c','leg',180,'NSCGJ Cap. VII: Oficiais de Justiça, parte 1 (arts. 994 a 1.040)',['leg-8'],20],
+ [43,'r','gen',150,'Revisão semanal 6 · metas 37 a 42'],
+ [44,'s','gen',180,'Simulado · Marco 2 · 50 questões + 1 discursiva'],
+ [45,'g','gen',180,'Revisão geral 2 · metas 23 a 42 + banco de erros'],
+ [46,'c','lp',150,'Pontuação',['lp-13'],20],
+ [47,'c','pciv',180,'Execução por quantia: penhora, arresto e avaliação (CPC 806-807; 827 a 846; 870 a 875)',['pciv-33','pciv-34','pciv-35','pciv-36'],20],
+ [48,'c','pen',150,'Crimes contra a fé pública (CP 293 a 305)',['pen-8','pen-9'],20],
+ [49,'c','const',180,'Poder Judiciário; Justiça Estadual; MP; Defensoria (CF 92 a 99; 125; 127; 134)',['const-10','const-11'],20],
+ [50,'c','inf',150,'MS-Excel: células, fórmulas, tabelas e gráficos',['inf-5','inf-6'],15],
+ [51,'c','ppen',120,'Busca e apreensão (CPP 240 a 250; 274)',['ppen-10','ppen-11'],20],
+ [52,'r','gen',150,'Revisão semanal 7 · metas 46 a 51'],
+ [53,'c','civ',180,'Invalidade do negócio jurídico; prescrição e decadência (CC 166 a 201)',['civ-9','civ-10','civ-11'],20],
+ [54,'c','pciv',150,'Poderes do juiz; auxiliares da justiça (CPC 139 a 143; 149 a 155; 159 a 161)',['pciv-12','pciv-13','pciv-14'],20],
+ [55,'c','pen',120,'Falsa identidade; documento alheio; fraude em certame; CP 336, 337, 357 e 359',['pen-10','pen-14','pen-16'],15],
+ [56,'c','mat',120,'Equações de 1º e 2º graus; sistemas de equações',['mat-8','mat-9','mat-13'],15],
+ [57,'c','atu',90,'Atualidades: fatos de março/2026',['atu-1'],10],
+ [58,'c','leg',180,'NSCGJ Cap. VII: Oficiais de Justiça, parte 2',['leg-9'],20],
+ [59,'r','gen',150,'Revisão semanal 8 · metas 53 a 58'],
+ [60,'c','ppen',150,'Prova; interrogatório; testemunhas (CPP 156; 185; 202 a 204; 218 a 225)',['ppen-7','ppen-8','ppen-9'],20],
+ [61,'c','civ',120,'Pessoas jurídicas; associações; fundações (CC 40 a 45; 49-50; 53; 62)',['civ-4'],15],
+ [62,'c','lp',120,'Colocação pronominal; sinônimos e antônimos; sentido próprio e figurado; significação contextual',['lp-11','lp-6','lp-7','lp-5'],15],
+ [63,'c','pciv',150,'Partes, capacidade processual e procuradores (CPC 64 a 66; 70 a 85)',['pciv-5','pciv-6','pciv-7','pciv-8'],20],
+ [64,'c','ppen',150,'Lei 9.099/95: JECrim e JEC cível',['ppen-26','ppen-27','pciv-38'],20],
+ [65,'r','gen',150,'Revisão semanal 9 · metas 60 a 64'],
+ [66,'s','gen',225,'Simulado · Marco 3 · 60 questões + 1 discursiva'],
+ [67,'g','gen',180,'Revisão geral 3 · metas 46 a 64 + banco de erros'],
+ [68,'c','civ',120,'LINDB (Decreto-Lei 4.657/42)',['civ-19'],20],
+ [69,'c','pciv',150,'Gratuidade; sucessão das partes; intervenção de terceiros (CPC 98 a 102; 110-111; 125 a 135)',['pciv-9','pciv-10','pciv-11'],15],
+ [70,'c','pen',150,'Crimes contra a Administração da Justiça (CP 339 a 347)',['pen-15'],20],
+ [71,'c','ppen',180,'Resposta à acusação; Júri: jurados e votação (CPP 396-396-A; 406; 436 a 446; 485 a 487)',['ppen-16','ppen-17','ppen-18','ppen-19'],20],
+ [72,'c','inf',120,'MS-Teams; OneDrive; correio eletrônico; Internet',['inf-7','inf-8','inf-9','inf-10'],15],
+ [73,'c','mat',150,'Geometria; sistemas de medidas; tabelas e gráficos',['mat-12','mat-11','mat-10'],15],
+ [74,'r','gen',150,'Revisão semanal 10 · metas 68 a 73'],
+ [75,'c','lp',150,'Estruturação do texto: relações entre ideias; recursos de coesão',['lp-4'],20],
+ [76,'c','pciv',120,'MP, Advocacia Pública e Defensoria; atos processuais (CPC 176 a 199)',['pciv-15','pciv-16'],15],
+ [77,'c','pen',150,'Homicídio; lesão corporal; violação de domicílio; segredo profissional (CP 121; 129; 150; 154)',['pen-4','pen-5','pen-6','pen-7'],15],
+ [78,'c','civ',120,'Prova; mandato (CC 212 a 215; 653 a 666)',['civ-12','civ-13'],15],
+ [79,'c','atu',90,'Atualidades: fatos de abril/2026',['atu-2'],10],
+ [80,'c','mat',150,'Raciocínio lógico: diagramas lógicos; sequências',['mat-17','mat-15'],15],
+ [81,'r','gen',150,'Revisão semanal 11 · metas 75 a 80'],
+ [82,'c','ppen',150,'Processo dos crimes de funcionários públicos; nulidades (CPP 513 a 518; 563 a 570)',['ppen-20','ppen-21'],15],
+ [83,'c','civ',150,'Preposto; posse (CC 1.169 a 1.173; 1.196 a 1.203)',['civ-14','civ-15'],15],
+ [84,'c','pciv',150,'Prova testemunhal; coisa julgada; cumprimento de sentença (CPC 447 a 454; 502; 528; 535-538)',['pciv-25','pciv-26','pciv-27','pciv-28'],15],
+ [85,'c','ppen',150,'Apelação; habeas corpus; medida de segurança; audiências; prazos (CPP 593; 647 a 654; 762-763; 792; 798)',['ppen-22','ppen-23','ppen-24','ppen-25'],15],
+ [86,'c','civ',150,'Penhor; tutela; curatela; herança e dívidas',['civ-16','civ-17','civ-18'],15],
+ [87,'c','pciv',180,'Possessórias; procedimentos especiais; atos executivos; recursos',['pciv-29','pciv-30','pciv-31','pciv-32','pciv-37'],15],
+ [88,'c','leg',150,'NSCGJ Caps. IV, X e XI (artigos indicados)',['leg-6','leg-7','leg-10'],15],
+ [89,'r','gen',150,'Revisão semanal 12 · metas 82 a 88'],
+ [90,'s','gen',300,'Simulado · Marco 4 · prova completa: 70 questões + 2 discursivas'],
+ [91,'g','gen',180,'Revisão geral 4 · metas 68 a 88 + banco de erros'],
+ [92,'c','atu',90,'Atualidades: fatos de maio/2026',['atu-1'],10],
+ [93,'c','atu',90,'Atualidades: fatos de junho/2026 em diante',['atu-2'],10],
+ [94,'f','gen',180,'Revisão final 1 · Boxes de Ouro de Direito'],
+ [95,'f','gen',180,'Revisão final 2 · Português, Mat./RLM, Informática, PcD e Atualidades'],
+ [96,'f','gen',180,'Revisão final 3 · banco de erros (abaixo de 70%)'],
+ [97,'f','gen',300,'Simulado final · prova completa: 70 questões + 2 discursivas']
+].map(([n,k,m,min,tit,tops,q])=>({n,k,m,min,tit,tops:tops||[],q:q||0}));
+const MARCOS=[[1,22,'Marco 1 · Fundamentos'],[23,45,'Marco 2 · Aprofundamento'],[46,67,'Marco 3 · Núcleo da Prova'],[68,91,'Marco 4 · Cobertura Total do Edital'],[92,97,'Marco 5 · Revisão Final e Simulados']];
+const KIND_TX={r:'Revisão semanal',s:'Simulado',g:'Revisão geral',f:'Revisão final'};
+/* discursiva logo depois da última meta de cada matéria de Conhecimentos Específicos */
+const PROTO_DISC={adm:'disc-1',const:'disc-2',pen:'disc-7',ppen:'disc-5',civ:'disc-3',pciv:'disc-4',leg:'disc-6'};
+const naJanela=mt=>mt.m==='mat'||(mt.m==='atu'&&mt.n!==41);   // PcD (meta 41) segue a ordem do curso
+const modoMetas=()=>!!(state&&state.plano&&state.plano.modo==='protocolo');
+/* Unidades planejáveis, em ordem: gerais (sequência do curso), janela (Mat/RL e Atualidades) e semana final */
+function unidadesProtocolo(){
+  const ger=[],jan=[],fin=[];
+  const ultima={};for(const mt of METAS)if(mt.k==='c'&&PROTO_DISC[mt.m])ultima[mt.m]=mt.n;
+  let ultimaDisc=null;
+  for(const mt of METAS){
+    let us;
+    if(mt.k==='c'){
+      const tops=mt.tops.filter(t=>TOP[t]);const W=tops.reduce((a,t)=>a+pesoTopico(TOP[t].t),0)||1;
+      us=tops.map(t=>({key:'M'+mt.n+'|'+t,metaN:mt.n,tipo:'estudo',m:TOP[t].m.id,t,min:Math.max(15,Math.round(mt.min*pesoTopico(TOP[t].t)/W/5)*5),split:true}));
+      const dif=mt.min-us.reduce((a,u)=>a+u.min,0);if(us.length)us[0].min=Math.max(15,us[0].min+dif);
+    }else us=[{key:'M'+mt.n,metaN:mt.n,tipo:mt.k==='f'?'final':'meta',m:'gen',t:null,min:mt.min,mk:mt.k,titulo:'M'+mt.n+' · '+mt.tit,split:false}];
+    (mt.k==='f'?fin:naJanela(mt)?jan:ger).push(...us);
+    if(mt.k==='c'&&PROTO_DISC[mt.m]&&ultima[mt.m]===mt.n&&TOP[PROTO_DISC[mt.m]]){
+      ultimaDisc={key:'D|'+mt.m,metaN:null,tipo:'estudo',m:'disc',t:PROTO_DISC[mt.m],min:60,split:false,titulo:'Discursiva · treino de '+MAT[mt.m].nome+' (após concluir a matéria)',apos:mt.n};
+      ger.push(ultimaDisc);
+    }
+  }
+  if(TOP['disc-8'])ger.splice(ger.indexOf(ultimaDisc)+1,0,{key:'D|reescrita',metaN:null,tipo:'estudo',m:'disc',t:'disc-8',min:60,split:false,titulo:'Discursiva · reescrita e correção das respostas anteriores'});
+  // tópicos acrescentados por você e ainda fora das metas entram no fim do conteúdo
+  const usados=new Set([...ger,...jan].map(u=>u.t).filter(Boolean));
+  for(const m of state.materias)for(const t of m.topicos)if(!t.fora&&!usados.has(t.id))ger.push({key:'X|'+t.id,metaN:null,tipo:'estudo',m:m.id,t:t.id,min:40,split:true});
+  fin.push({key:'F|atualidades',metaN:null,tipo:'final',m:'atu',t:null,min:90,split:false,titulo:'Véspera: releitura do arquivo de Atualidades (meta 93) e descanso'});
+  return {ger,jan,fin};
+}
+function cardsDaUnidade(key){return state.cards.filter(c=>c.pk===key)}
+/* Gera o planejamento por metas a partir de "de", mantendo histórico, cartões com status e movidos manualmente */
+function replanejarProtocolo(deParam){
+  const de=deParam||maxS(INICIO,hoje());
+  state.cards=state.cards.filter(c=>{
+    if(c.tipo==='rev')return true;
+    if(c.previo)return true;
+    if(!c.pk)return c.status==='Finalizado';                 // cartões do plano antigo: só o histórico concluído fica
+    if(isFolga(c.data)&&c.status!=='Finalizado')return false;
+    if(c.data<de)return true;
+    return !!(c.status||c.fixo);
+  });
+  const {ger,jan,fin}=unidadesProtocolo();
+  const restante=u=>{
+    if(u.t&&statusTopico(u.t)==='Finalizado'&&!cardsDaUnidade(u.key).length)return 0;   // já concluído no plano antigo
+    const r=u.min-cardsDaUnidade(u.key).reduce((a,c)=>a+c.min,0);return r<15?0:r;
+  };
+  const dias=[];for(let d=de;d<=FIM_CONTEUDO;d=addDias(d,1))if(isDiaEstudo(d))dias.push(d);
+  const base={};for(const d of dias){const {subs,carga}=infoDia(d);base[d]={carga,subs:new Set(subs),geral:0}}
+  const pode=(st,m,min,limite)=>{
+    if(!st.subs.has(m)&&st.subs.size>=state.config.maxDisc)return false;
+    if((m===LP&&st.subs.has(INF))||(m===INF&&st.subs.has(LP)))return false;
+    return st.carga+min<=limite;
+  };
+  const novos=[],avisos=[];
+  const por=(u,d,min,st)=>{novos.push({id:uid('c'),tipo:u.tipo,m:u.m,t:u.t,data:d,min,status:'',metodo:'',pk:u.key,metaN:u.metaN,mk:u.mk,titulo:u.titulo});st.carga+=min;st.subs.add(u.m)};
+  // 1) janela final: Matemática/RL e Atualidades distribuídas nas 3 semanas antes da semana final
+  const dj=dias.filter(d=>d>=PROTO_JANELA);
+  for(const grupo of [jan.filter(u=>u.m==='mat'),jan.filter(u=>u.m!=='mat')]){
+    const metasG=[...new Set(grupo.map(u=>u.metaN))];
+    metasG.forEach((n,i)=>{
+      const us=grupo.filter(u=>u.metaN===n&&restante(u));if(!us.length)return;
+      const tot=us.reduce((a,u)=>a+restante(u),0);
+      let k=Math.min(dj.length-1,Math.floor(i*dj.length/metasG.length)+(grupo[0].m==='mat'?0:1));
+      for(;k<dj.length;k++){const st=base[dj[k]];if(pode(st,us[0].m,tot,state.config.cargaMax)){us.forEach(u=>por(u,dj[k],restante(u),st));return}}
+      avisos.push('Meta '+n+' não coube na janela de 15/02 a 05/03');
+    });
+  }
+  // 2) sequência do curso: menor carga-alvo diária (entre 2h30 e 4h) que termina tudo até 05/03
+  const seq=ger.map(u=>({u,rem:restante(u)})).filter(x=>x.rem>0);
+  const simular=(T,gravar)=>{
+    const st={};for(const d of dias)st[d]={carga:base[d].carga,subs:new Set(base[d].subs)};
+    let i=0;
+    for(const x of seq){
+      let rem=x.rem;const u=x.u;
+      while(rem>0){
+        if(i>=dias.length)return false;
+        const d=dias[i],s=st[d],cap=T-s.carga;
+        const ok=(min,lim)=>pode(s,u.m,min,lim);
+        if(!u.split){
+          if(ok(rem,T)){if(gravar)por(u,d,rem,s);else{s.carga+=rem;s.subs.add(u.m)}rem=0;break}
+          if(s.carga===0&&rem>T&&(!s.subs.size)){if(gravar)por(u,d,rem,s);else{s.carga+=rem;s.subs.add(u.m)}rem=0;i++;break} // bloco maior que a meta diária (simulados) fica sozinho no dia
+          i++;continue;
+        }
+        let take=Math.min(rem,cap);
+        if(take<rem&&rem-take<30)take=rem-30;
+        if(take<Math.min(30,rem)||!ok(take,T)){i++;continue}
+        if(gravar)por(u,d,take,s);else{s.carga+=take;s.subs.add(u.m)}
+        rem-=take;if(rem>0)i++;
+      }
+    }
+    return true;
+  };
+  let T=null;for(let t=150;t<=state.config.cargaMax;t+=5)if(simular(t,false)){T=t;break}
+  if(T==null){T=state.config.cargaMax;avisos.push('Nem com '+fmtHM(T)+' por dia todas as metas cabem até 05/03: algumas ficaram de fora (veja a lista de metas)')}
+  simular(T,true);
+  // 3) semana final: revisões finais e simulado final
+  const df=[];for(let d=REV_INI;d<=REV_FIM;d=addDias(d,1))if(isDiaEstudo(d))df.push(d);
+  const finRest=fin.filter(u=>restante(u)>0&&!cardsDaUnidade(u.key).length);
+  finRest.forEach((u,i)=>{if(df[i])novos.push({id:uid('f'),tipo:'final',m:u.m,t:null,data:df[i],min:u.min,status:'',metodo:'',pk:u.key,metaN:u.metaN,mk:u.mk||'f',titulo:u.titulo});else avisos.push((u.titulo||u.key)+' não coube na semana final (folga)')});
+  state.cards.push(...novos);
+  state.plano.cargaAlvo=T;state.plano.avisos=avisos;state.plano.geradoEm=new Date().toISOString();
+  reposicionarRevisoes(de);
+}
+/* Marca as metas 1..N como concluídas (cartões de histórico, sem gerar revisões espaçadas retroativas) */
+function marcarMetasConcluidas(N){
+  const {ger,jan,fin}=unidadesProtocolo(),h=maxS(INICIO,hoje());let n=0;
+  for(const u of [...ger,...jan,...fin]){
+    if(!u.metaN||u.metaN>N)continue;
+    const cs=cardsDaUnidade(u.key);if(cs.length&&cs.every(c=>c.status==='Finalizado'))continue;
+    state.cards=state.cards.filter(c=>c.pk!==u.key);
+    state.cards.push({id:uid('c'),tipo:u.tipo,m:u.m,t:u.t,data:h,min:u.min,status:'Finalizado',metodo:'',pk:u.key,metaN:u.metaN,mk:u.mk,titulo:u.titulo,previo:true});n++;
+    if(u.t&&statusTopico(u.t)==='Finalizado'&&!state.finalizadoEm[u.t])state.finalizadoEm[u.t]=h;
+  }
+  state.plano.concluidasAte=Math.max(state.plano.concluidasAte||0,N);
+  return n;
+}
+function statusMeta(n){
+  const cs=state.cards.filter(c=>c.metaN===n&&c.tipo!=='rev');
+  if(!cs.length){const mt=METAS.find(m=>m.n===n);if(mt&&mt.tops.length&&mt.tops.every(t=>TOP[t]&&statusTopico(t)==='Finalizado'))return {k:'ok',tx:'concluída',cs};return {k:'nao',tx:'não agendada',cs}}
+  if(cs.every(c=>c.status==='Finalizado'))return {k:'ok',tx:'concluída',cs};
+  if(cs.some(isAtrasado))return {k:'atr',tx:'atrasada',cs};
+  if(cs.some(c=>c.status))return {k:'and',tx:'em andamento',cs};
+  return {k:'plan',tx:'planejada',cs};
+}
+function htmlProtocolo(){
+  const P=state.plano,feitas=METAS.filter(m=>statusMeta(m.n).k==='ok').length;
+  const {ger}=unidadesProtocolo(),discs=ger.filter(u=>u.key.startsWith('D|'));
+  let h='<div class="panel" style="margin-bottom:14px"><div class="row"><div><h3 style="margin:0">Cronograma por metas (Protocolo)</h3><div class="small muted">'+feitas+' de 97 metas concluídas · carga-alvo de conteúdo: '+fmtHM(P.cargaAlvo||0)+' por dia (o resto até '+fmtHM(state.config.cargaMax)+' fica para as revisões espaçadas)</div></div><span class="sp"></span>'+
+    '<label class="small muted row" style="gap:6px">Concluí até a meta <input type="number" id="ptN" min="0" max="97" value="'+(P.concluidasAte||0)+'" style="width:70px"></label><button data-act="ptMarcar">Atualizar</button><button data-act="ptRefazer">Redistribuir</button><button class="sm" data-act="ptSair">Voltar ao ciclo semanal</button></div>'+
+    '<div class="note small" style="margin-top:10px">Regras aplicadas: ordem das metas do curso; <b>Matemática e Raciocínio Lógico</b> e <b>Atualidades</b> (fatos do mês) só de 15/02 a 05/03; <b>discursiva</b> logo depois da última meta de cada matéria de Conhecimentos Específicos; semana de 08 a 12/03 só com as metas 94 a 97. Continuam valendo: no máximo 3 disciplinas por dia (revisão/simulado conta como uma), Português e Informática nunca juntos, nada em fins de semana e folgas.</div>'+
+    ((P.avisos||[]).length?'<div class="warn small" style="margin-top:8px">'+P.avisos.map(esc).join('<br>')+'</div>':'')+'</div>';
+  for(const [a,b,nome] of MARCOS){
+    h+='<div class="panel" style="margin-bottom:10px"><h4>'+nome+'</h4><div class="tw"><table><tr><th>Meta</th><th>Assunto</th><th>Matéria</th><th>Duração</th><th>Dias</th><th>Situação</th></tr>';
+    for(const mt of METAS.filter(m=>m.n>=a&&m.n<=b)){
+      const s=statusMeta(mt.n),dts=[...new Set(s.cs.filter(c=>!c.previo).map(c=>c.data))].sort();
+      const extra=naJanela(mt)?' <span class="tag cust">reta final</span>':'';
+      h+='<tr><td><b class="ft">M'+mt.n+'</b></td><td class="small">'+esc(mt.tit)+extra+'</td><td>'+(mt.m==='gen'?'<span class="tag rev">'+KIND_TX[mt.k]+'</span>':tagMat(mt.m))+'</td><td class="small">'+fmtHM(mt.min)+'</td><td class="small">'+(dts.length?dts.map(d=>DIAS[dow(d)]+' '+fmtBR(d)).join(', '):'—')+'</td><td><span class="st '+({ok:'Finalizado',and:'Iniciado',atr:'Revisar'}[s.k]||'')+'">'+s.tx+'</span></td></tr>';
+      for(const u of discs.filter(x=>x.apos===mt.n||(x.key==='D|reescrita'&&mt.n===88))){
+        const cs=cardsDaUnidade(u.key);const ds=cs.map(c=>DIAS[dow(c.data)]+' '+fmtBR(c.data)).join(', ');
+        h+='<tr><td class="small muted">+</td><td class="small">'+esc(u.titulo)+'</td><td>'+tagMat('disc')+'</td><td class="small">'+fmtHM(u.min)+'</td><td class="small">'+(ds||'—')+'</td><td><span class="st '+(cs.length&&cs.every(c=>c.status==='Finalizado')?'Finalizado':'')+'">'+(cs.length&&cs.every(c=>c.status==='Finalizado')?'concluída':cs.length?'planejada':'não agendada')+'</span></td></tr>';
+      }
+    }
+    h+='</table></div></div>';
+  }
+  return h;
+}
+function aplicarProtocolo(N){
+  const antes=JSON.stringify(state);
+  try{copiaSegurancaImportacao(antes,'Antes do cronograma por metas')}catch(e){toast('Não foi possível criar a cópia de segurança; nada foi alterado',1);return false}
+  try{
+    state.plano=Object.assign(state.plano||{},{modo:'protocolo',aplicadoEm:new Date().toISOString(),ofertaVista:true});
+    state.cards=state.cards.filter(c=>c.tipo==='rev'||c.status==='Finalizado');   // sai o plano antigo; fica o que você já concluiu
+    marcarMetasConcluidas(N);
+    replanejarProtocolo();
+    indexar();
+  }catch(e){console.error(e);state=JSON.parse(antes);indexar();toast('Falha ao aplicar o cronograma; nada foi alterado: '+e.message,1);return false}
+  commit();salvarDados();return true;
+}
+ACOES.ptOferta=()=>{
+  const ov=modal('<h3>Cronograma por metas do Protocolo</h3><p class="small">O planejamento passa a seguir as <b>97 metas</b> do curso, na ordem deles, ligadas aos tópicos do seu edital:</p><ul class="small" style="padding-left:18px"><li><b>Matemática e Raciocínio Lógico</b> só nas 3 semanas antes da semana final (15/02 a 05/03/2027).</li><li><b>Atualidades</b> (fatos do mês) só no último mês, a partir de 15/02/2027. O Estatuto da Pessoa com Deficiência (meta 41) segue a ordem do curso.</li><li><b>Discursiva</b> de cada matéria de Conhecimentos Específicos logo depois da última meta dela.</li><li>Semana de 08 a 12/03: só revisão final (metas 94 a 96), simulado final (97) e releitura de Atualidades.</li><li>Mantém: até 3 disciplinas por dia, Português e Informática nunca juntos, nada em fins de semana e folgas; horas, questões e o que você já concluiu.</li></ul>'+
+    '<div class="fm"><label>Já concluí até a meta<input type="number" id="ptN0" min="0" max="97" value="'+(state.plano.concluidasAte||6)+'"></label></div><p class="tiny muted">As metas concluídas entram como finalizadas, sem gerar revisões espaçadas retroativas (a meta 7 já é a revisão delas). Uma cópia de segurança é criada antes; dá para voltar ao ciclo semanal quando quiser.</p>'+
+    '<div class="mft"><button data-x>Agora não</button><button class="pri" data-ok>Aplicar cronograma</button></div>',{wide:true});
+  $('[data-x]',ov).onclick=()=>{state.plano.ofertaVista=true;fecharModal();commit()};
+  $('[data-ok]',ov).onclick=()=>{
+    const N=Math.max(0,Math.min(97,parseInt($('#ptN0').value,10)||0));fecharModal();
+    if(aplicarProtocolo(N))resumoProtocolo();
+  };
+};
+function resumoProtocolo(){
+  const marco=n=>{const s=statusMeta(n);const d=s.cs.map(c=>c.data).sort();return d.length?fmtBR(d[0],1):'—'};
+  const P=state.plano,ultimaConteudo=state.cards.filter(c=>c.pk&&c.tipo!=='final'&&!c.previo).map(c=>c.data).sort().pop();
+  const ov=modal('<h3>Cronograma por metas aplicado</h3><div class="ok small">Metas concluídas: até a '+(P.concluidasAte||0)+'. Carga-alvo de conteúdo: '+fmtHM(P.cargaAlvo)+' por dia.</div><table style="margin-top:10px"><tr><th>Marco</th><th>Data</th></tr><tr><td>Próxima meta (M'+((P.concluidasAte||0)+1)+')</td><td>'+marco((P.concluidasAte||0)+1)+'</td></tr><tr><td>Simulado Marco 1 (M21)</td><td>'+marco(21)+'</td></tr><tr><td>Simulado Marco 2 (M44)</td><td>'+marco(44)+'</td></tr><tr><td>Simulado Marco 3 (M66)</td><td>'+marco(66)+'</td></tr><tr><td>Simulado Marco 4 (M90)</td><td>'+marco(90)+'</td></tr><tr><td>Último dia de conteúdo</td><td>'+(ultimaConteudo?fmtBR(ultimaConteudo,1):'—')+'</td></tr><tr><td>Simulado final (M97)</td><td>'+marco(97)+'</td></tr></table>'+
+    ((P.avisos||[]).length?'<div class="warn small" style="margin-top:8px">'+P.avisos.map(esc).join('<br>')+'</div>':'')+'<div class="mft"><button data-act="ptVerMetas">Ver lista de metas</button><button class="pri" data-x>Concluir</button></div>');
+  $('[data-x]',ov).onclick=fecharModal;
+}
+ACOES.ptVerMetas=()=>{fecharModal();ui.tab='ciclos';render();window.scrollTo(0,0)};
+ACOES.ptMarcar=()=>{
+  const N=Math.max(0,Math.min(97,parseInt($('#ptN').value,10)||0));
+  confirmar('Marcar as metas 1 a '+N+' como concluídas e redistribuir o restante a partir de hoje?',()=>{
+    const antes=JSON.stringify(state);
+    try{copiaSegurancaImportacao(antes,'Antes de atualizar as metas concluídas');marcarMetasConcluidas(N);replanejarProtocolo();indexar()}
+    catch(e){state=JSON.parse(antes);indexar();toast('Falha; nada foi alterado: '+e.message,1);return}
+    commit();toast('Metas atualizadas e planejamento redistribuído');
+  },'Atualizar',false);
+};
+ACOES.ptRefazer=()=>confirmar('Redistribuir as metas restantes a partir de hoje? O que já tem status ou foi movido manualmente é mantido.',()=>{replanejar();commit();toast('Metas redistribuídas')},'Redistribuir',false);
+ACOES.ptSair=()=>confirmar('Voltar ao ciclo semanal? O planejamento futuro volta a ser gerado pelo ciclo; o que você concluiu é mantido. Dá para reaplicar as metas depois.',()=>{
+  const antes=JSON.stringify(state);
+  try{copiaSegurancaImportacao(antes,'Antes de voltar ao ciclo semanal');state.plano.modo='ciclo';state.cards=state.cards.filter(c=>c.tipo==='rev'||c.status==='Finalizado');replanejar();indexar()}
+  catch(e){state=JSON.parse(antes);indexar();toast('Falha; nada foi alterado',1);return}
+  commit();toast('Ciclo semanal restaurado');
+},'Voltar ao ciclo');
+/*@@V4@@*/
 
 /* =================== v2 · ETAPA 4: painel "Hoje" =================== */
 /* Usa exatamente as mesmas funções das outras abas (sem números próprios), por isso não há divergência. */
