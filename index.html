@@ -244,6 +244,23 @@ svg .tx{fill:var(--muted)}svg .tk{fill:var(--ink)}
 .fpanel{display:flex;flex-direction:column;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .fgrp{display:flex;flex-direction:column;gap:5px}
 .fcount{white-space:nowrap}
+.bar.big{height:10px;position:relative;overflow:visible;margin:6px 0 3px}
+.bar.big>i{border-radius:5px}.bar.big>i.mid{background:var(--yellow)}.bar.big>i.bad{background:var(--red)}.bar.big>i.ok{background:var(--green)}
+.bar.big>u{position:absolute;top:-3px;width:2px;height:16px;background:var(--ink);opacity:.45;border-radius:1px}
+.meta-l{margin-bottom:12px}
+.ritmo{font-size:11px;font-family:var(--ft);font-weight:600;padding:1px 8px;border-radius:999px}
+.ritmo.ok{background:var(--green-soft);color:var(--green-ink)}.ritmo.mid{background:var(--yellow-soft);color:var(--yellow-ink)}.ritmo.bad{background:var(--red-soft);color:var(--red-ink)}
+svg .bm{fill:var(--chart-meta)}svg .br{fill:var(--accent)}svg .br.ok{fill:var(--green)}
+i.lg{display:inline-block;width:9px;height:9px;border-radius:2px;margin:0 3px 0 6px;vertical-align:-1px}i.lg.bm{background:var(--chart-meta)}i.lg.br{background:var(--accent)}
+.hmgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.hmgrid .dh{font-size:10px;color:var(--muted);text-align:center;font-family:var(--ft)}
+.hm{font-size:11px;text-align:center;border-radius:6px;padding:7px 0;color:var(--ink);background:var(--heat0)}
+i.hm{display:inline-block;width:12px;height:12px;padding:0;margin:0 2px;vertical-align:-2px;border-radius:3px}
+.hm.l1{background:var(--heat1)}.hm.l2{background:var(--heat2)}.hm.l3{background:var(--heat3);color:#fff}.hm.l4{background:var(--heat4);color:#fff}
+:root[data-te=dark] .hm.l4{color:#0f131a}
+.hm.off{background:var(--heat-off);color:var(--muted)}.hm.fora{background:transparent;color:var(--muted)}.hm.out{visibility:hidden}
+.hm.fut{background:transparent;border:1px dashed var(--line);color:var(--muted)}
+.hm.hoje{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700}
 /*@@CSS_V2@@*/
 
 /* ===== Tablet (641–1024px): colunas com rolagem horizontal dentro do quadro ===== */
@@ -591,7 +608,8 @@ function estadoInicial(){
     materias,ciclo:clone(CICLO_PADRAO),folgas:clone(FOLGAS_PADRAO),cards:[],finalizadoEm:{},tempos:[],questoes:[],
     config:{cargaMax:240,maxDisc:3,amostraMin:20,revMin:{1:15,7:15,30:20},pomodoro:false,pomoFoco:25,pomoPausa:5,som:true},
     timer:null,meta:{ultimoBackupExterno:null,ultimaCopiaDiaria:null},
-    prefs:{tema:'auto'},filtros:{atual:{plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[]}},salvos:[]}/*@@ESTADO_V2@@*/};
+    prefs:{tema:'auto'},filtros:{atual:{plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[]}},salvos:[]},
+    metas:{horas:1200,questoes:100,topicos:null,minDia:30,historico:{}},constancia:{maior:0,atualizadoEm:null}/*@@ESTADO_V2@@*/};
 }
 function indexar(){
   TOP={};MAT={};
@@ -754,7 +772,7 @@ function migrar(d){
   if(d.versao>VERSAO_DADOS)throw new Error('Versão de dados mais nova que este StudyOS');
   if(d.versao===1){ // v1 -> v2: tema, filtros, metas e constância (nada da v1 é removido)
     d.prefs=Object.assign({tema:'auto'},d.prefs||{});
-    d.filtros=d.filtros||null; // preenchido abaixo com os padrões
+    d.filtros=d.filtros||null; // filtros, metas e constância recebem os padrões logo abaixo
     d.versao=2;
   }
   // futuras migrações: if(d.versao===2){...; d.versao=3}
@@ -765,6 +783,8 @@ function migrar(d){
   if(!d.filtros||!d.filtros.atual)d.filtros=base.filtros;
   for(const k of Object.keys(base.filtros.atual))d.filtros.atual[k]=Object.assign(base.filtros.atual[k],d.filtros.atual[k]||{});
   if(!Array.isArray(d.filtros.salvos))d.filtros.salvos=[];
+  d.metas=Object.assign(base.metas,d.metas||{});d.metas.historico=d.metas.historico||{};
+  d.constancia=Object.assign(base.constancia,d.constancia||{});
   d.meta=Object.assign(base.meta,d.meta||{});
   return d;
 }
@@ -780,7 +800,7 @@ function setSaveSt(k){
   const t=new Date();
   $('#saveTx').textContent=k==='saving'?'Salvando…':k==='error'?'Erro ao salvar':'Salvo às '+pad(t.getHours())+':'+pad(t.getMinutes());
 }
-function commit(){indexar();agendarSalvar();render()}
+function commit(){indexar();if(typeof aoCommit==='function')aoCommit();agendarSalvar();render()}
 
 /* ---------- UI: utilidades ---------- */
 const ACOES={};
@@ -841,7 +861,7 @@ function renderCalendario(){
 }
 
 /* ---------- Abas ---------- */
-const ABAS=[['plan','Planejamento semanal'],['ciclos','Ciclos de estudo'],['materias','Matérias'],['stats','Estatísticas'],['tempo','Tempo de Estudos'],['questoes','Questões'],['config','Folgas e backup']];
+const ABAS=[['plan','Planejamento semanal'],['ciclos','Ciclos de estudo'],['materias','Matérias'],['stats','Estatísticas'],['metas','Metas e constância'],['tempo','Tempo de Estudos'],['questoes','Questões'],['config','Folgas e backup']];
 function renderAbas(){
   $('#tabs').innerHTML=ABAS.map(([k,n])=>'<button class="tab'+(ui.tab===k?' on':'')+'" data-tab="'+k+'">'+n+'</button>').join('');
   const prin=BNAV.filter(([k])=>ABAS.some(a=>a[0]===k)),naPrin=prin.some(([k])=>k===ui.tab);
@@ -1653,6 +1673,129 @@ async function aoIniciar(){
 
 
 /*@@V2_MODULOS@@*/
+/* =================== v2 · ETAPA 3: metas e constância =================== */
+/* Fonte única dos números: Tempo de Estudos (manual + cronômetro), Questões e tópicos finalizados. */
+function minutosDia(d){let m=0;for(const t of state.tempos)if(t.data===d)m+=t.min;return m}
+function questoesDia(d){let n=0;for(const q of state.questoes)if(q.data===d)n+=q.total;return n}
+function topicosFinalizadosEm(de,ate){let n=0;for(const [tid,d] of Object.entries(state.finalizadoEm||{}))if(d>=de&&d<=ate&&TOP[tid]&&statusTopico(tid)==='Finalizado')n++;return n}
+function soma(lista,de,ate,campo){let n=0;for(const x of lista)if(x.data>=de&&x.data<=ate)n+=x[campo];return n}
+function semanaAtual(){const ws=semanas();return ws[semanaAtualIdx()]}
+function diasUteis(w){return w.dias.filter(isDiaEstudo)}
+function topicosPrevistos(w){ // tópicos cujo último bloco de estudo cai na semana
+  const ult={};for(const c of state.cards)if(c.tipo==='estudo'&&c.t&&(!ult[c.t]||c.data>ult[c.t]))ult[c.t]=c.data;
+  return Object.values(ult).filter(d=>d>=w.mon&&d<=w.fim).length;
+}
+function metaSemana(w){
+  const n=diasUteis(w).length,M=state.metas,fr=n/5;
+  const snap=M.historico&&M.historico[w.mon];
+  if(snap&&w.fim<hoje())return Object.assign({dias:n},snap);
+  return {dias:n,horas:Math.round(M.horas*fr),questoes:Math.round(M.questoes*fr),topicos:M.topicos==null?topicosPrevistos(w):Math.round(M.topicos*fr)};
+}
+function realizadoSemana(w){return {horas:soma(state.tempos,w.mon,w.fim,'min'),questoes:soma(state.questoes,w.mon,w.fim,'total'),topicos:topicosFinalizadosEm(w.mon,w.fim)}}
+function fracaoEsperada(w){ // parte da semana útil já decorrida até agora (hoje conta como meio dia)
+  const ds=diasUteis(w),h=hoje();if(!ds.length)return 0;
+  if(h>w.fim)return 1;if(h<w.mon)return 0;
+  return ds.reduce((a,d)=>a+(d<h?1:d===h?.5:0),0)/ds.length;
+}
+function ritmo(real,meta,fr){
+  if(!meta)return {k:'ok',t:'sem meta'};
+  const esp=meta*fr;if(real>=meta)return {k:'ok',t:'meta batida'};
+  if(esp<=0||real>=esp*.9)return {k:'ok',t:'no ritmo'};
+  if(real>=esp*.7)return {k:'mid',t:'levemente atrasado'};
+  return {k:'bad',t:'atrasado'};
+}
+/* Constância: só dias úteis contam; fins de semana e folgas ativas não somam nem quebram */
+function diaEstudado(d){return minutosDia(d)>=state.metas.minDia||topicosFinalizadosEm(d,d)>=1}
+function sequencias(){
+  const h=hoje();let atual=0,maior=0,run=0;
+  const dias=[];for(let d=INICIO;d<=h&&d<=REV_FIM;d=addDias(d,1))if(isDiaEstudo(d))dias.push(d);
+  for(const d of dias){if(diaEstudado(d)){run++;maior=Math.max(maior,run)}else if(d!==h)run=0}
+  for(let i=dias.length-1;i>=0;i--){const d=dias[i];if(diaEstudado(d))atual++;else if(d===h)continue;else break}
+  return {atual,maior:Math.max(maior,state.constancia&&state.constancia.maior||0)};
+}
+function aoCommit(){
+  if(!state.metas)return;
+  const w=semanaAtual(),m=metaSemana(w);
+  state.metas.historico=state.metas.historico||{};
+  state.metas.historico[w.mon]={horas:m.horas,questoes:m.questoes,topicos:m.topicos};
+  const s=sequencias();state.constancia=Object.assign(state.constancia||{},{maior:s.maior,atualizadoEm:hoje()});
+}
+function fmtFalta(k,v){return k==='horas'?fmtHM(v):v+(k==='questoes'?' questões':v===1?' tópico':' tópicos')}
+const NOMES_META={horas:'Horas de estudo',questoes:'Questões resolvidas',topicos:'Tópicos finalizados'};
+function htmlMetasSemana(compacto){
+  const w=semanaAtual(),m=metaSemana(w),r=realizadoSemana(w),fr=fracaoEsperada(w),s=sequencias();
+  let o='';
+  for(const k of ['horas','questoes','topicos']){
+    const p=m[k]?Math.min(100,Math.round(100*r[k]/m[k])):0,rt=ritmo(r[k],m[k],fr),falta=Math.max(0,m[k]-r[k]);
+    const msg=!m[k]?'Sem meta nesta semana':falta?'Faltam '+fmtFalta(k,falta)+' para a meta da semana':'Meta da semana alcançada ✓';
+    o+='<div class="meta-l"><div class="row" style="gap:6px"><b class="ft small">'+NOMES_META[k]+'</b><span class="ritmo '+rt.k+'">'+rt.t+'</span><span class="sp"></span><span class="small"><b class="ft">'+(k==='horas'?fmtHM(r[k]):r[k])+'</b> <span class="muted">/ '+(k==='horas'?fmtHM(m[k]):m[k])+'</span></span></div>'+
+      '<div class="bar big" title="Esperado até agora: '+Math.round(fr*100)+'% da meta"><i class="'+rt.k+'" style="width:'+p+'%"></i><u style="left:'+Math.round(fr*100)+'%"></u></div><div class="tiny muted">'+msg+'</div></div>';
+  }
+  o+='<div class="row small" style="margin-top:4px;gap:14px"><span>🔥 Sequência atual: <b class="ft">'+s.atual+'</b> dia'+(s.atual===1?'':'s')+' útil'+(s.atual===1?'':'eis')+'</span><span class="muted">Maior: <b class="ft">'+s.maior+'</b></span>'+(compacto?'':'<span class="muted tiny">Semana S'+w.n+' · '+m.dias+' dia(s) útil(eis) · metas proporcionais aos dias úteis</span>')+'</div>';
+  return o;
+}
+function htmlHistoricoMetas(){
+  const ws=semanas(),ci=semanaAtualIdx(),ult=ws.slice(Math.max(0,ci-7),ci+1);
+  return '<div class="grid g3">'+['horas','questoes','topicos'].map(k=>{
+    const vals=ult.map(w=>({w,m:metaSemana(w)[k],r:realizadoSemana(w)[k]}));
+    const mx=Math.max(1,...vals.map(v=>Math.max(v.m,v.r)));
+    const W=300,H=140,bw=W/8,y=v=>H-18-(H-30)*v/mx;
+    const svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" role="img" aria-label="Meta e realizado: '+NOMES_META[k]+'">'+
+      '<line x1="0" x2="'+W+'" y1="'+(H-18)+'" y2="'+(H-18)+'" class="cg"/>'+
+      vals.map((v,i)=>{const x=i*bw+4,f=v=>k==='horas'?fmtHM(v):v;
+        return '<rect x="'+x+'" y="'+y(v.m)+'" width="'+(bw/2-3)+'" height="'+(H-18-y(v.m))+'" rx="2" class="bm"><title>S'+v.w.n+' meta: '+f(v.m)+'</title></rect>'+
+               '<rect x="'+(x+bw/2-3)+'" y="'+y(v.r)+'" width="'+(bw/2-3)+'" height="'+(H-18-y(v.r))+'" rx="2" class="'+(v.r>=v.m&&v.m?'br ok':'br')+'"><title>S'+v.w.n+' realizado: '+f(v.r)+'</title></rect>'+
+               '<text x="'+(x+bw/2-3)+'" y="'+(H-4)+'" font-size="10" text-anchor="middle" class="tx">S'+v.w.n+'</text>'}).join('')+'</svg>';
+    return '<div><div class="row"><b class="ft small">'+NOMES_META[k]+'</b><span class="sp"></span><span class="tiny muted"><i class="lg bm"></i>meta <i class="lg br"></i>realizado</span></div>'+svg+'</div>';
+  }).join('')+'</div>';
+}
+function htmlHeatmap(){
+  const ini='2026-11',fim='2027-03';
+  if(!ui.hmMes){const h=hoje().slice(0,7);ui.hmMes=h<ini?ini:h>fim?fim:h}
+  const [y,mo]=ui.hmMes.split('-').map(Number),first=new Date(y,mo-1,1,12),nd=new Date(y,mo,0).getDate();
+  let nome=first.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});nome=nome.charAt(0).toUpperCase()+nome.slice(1);
+  let g='';for(const n of ['D','S','T','Q','Q','S','S'])g+='<div class="dh">'+n+'</div>';
+  for(let i=0;i<first.getDay();i++)g+='<div class="hm out"></div>';
+  const h=hoje();
+  for(let d=1;d<=nd;d++){
+    const s=y+'-'+pad(mo)+'-'+pad(d),min=minutosDia(s),q=questoesDia(s),tp=topicosFinalizadosEm(s,s);
+    const tip=fmtBR(s,1)+' · '+fmtHM(min)+' · '+q+' questões · '+tp+' tópico(s) finalizado(s)';
+    let cl='hm';
+    if(s<INICIO||s>PROVA)cl+=' fora';
+    else if(!isDiaEstudo(s))cl+=' off';
+    else if(s>h)cl+=' fut';
+    else cl+=' l'+(min>=180?4:min>=120?3:min>=60?2:(min>0||tp)?1:0);
+    if(s===h)cl+=' hoje';
+    g+='<div class="'+cl+'" data-act="hmDia" data-id="'+esc(tip)+'" title="'+esc(tip+(isFolga(s)?' · folga':(dow(s)%6===0?' · fim de semana':'')))+'" aria-label="'+esc(tip)+'">'+d+'</div>';
+  }
+  return '<div class="calhead"><button class="ico" data-act="hmNav" data-id="-1"'+(ui.hmMes<=ini?' disabled':'')+' aria-label="Mês anterior">‹</button><b>'+nome+'</b><button class="ico" data-act="hmNav" data-id="1"'+(ui.hmMes>=fim?' disabled':'')+' aria-label="Próximo mês">›</button></div>'+
+    '<div class="hmgrid">'+g+'</div><div class="calleg"><span>menos</span>'+[0,1,2,3,4].map(i=>'<i class="hm l'+i+'" title="'+['nenhum estudo','até 1h','1h a 2h','2h a 3h','3h ou mais'][i]+'"></i>').join('')+'<span>mais</span><span><i class="hm off"></i>fim de semana / folga (sem cobrança)</span></div>';
+}
+ACOES.hmDia=t=>toast(t);
+ACOES.hmNav=v=>{const[y,m]=ui.hmMes.split('-').map(Number);const d=new Date(y,m-1+(+v),1);const k=d.getFullYear()+'-'+pad(d.getMonth()+1);if(k>='2026-11'&&k<='2027-03')ui.hmMes=k;render()};
+VIEWS.metas=function(){
+  const M=state.metas,w=semanaAtual();
+  let o='<h2>Metas e constância</h2><div class="muted small" style="margin-bottom:12px">Alimentado automaticamente pela aba Tempo de Estudos (inclusive o cronômetro), pela aba Questões e pelos tópicos finalizados. Semana de segunda a sexta.</div>';
+  o+='<div class="grid g2"><div class="panel"><h3>Semana atual (S'+w.n+' · '+fmtBR(w.ini)+'–'+fmtBR(w.fim)+')</h3>'+htmlMetasSemana()+'</div>';
+  o+='<div class="panel"><h3>Mapa de constância</h3><div class="tiny muted" style="margin-bottom:6px">Dia estudado = pelo menos '+fmtHM(M.minDia)+' lançadas ou 1 tópico finalizado. Passe o mouse (ou toque) em um dia para ver horas, questões e tópicos.</div>'+htmlHeatmap()+'</div></div>';
+  o+='<div class="panel" style="margin-top:14px"><h3>Últimas 8 semanas: meta × realizado</h3>'+htmlHistoricoMetas()+'</div>';
+  const auto=topicosPrevistos(w);
+  o+='<div class="panel" style="margin-top:14px"><h3>Ajustes das metas</h3><div class="fm">'+
+    '<label>Horas de estudo por semana (hh:mm)<input id="mtH" value="'+fmtHM(M.horas).replace('h','')+'" inputmode="numeric"></label>'+
+    '<label>Questões por semana<input id="mtQ" type="number" min="0" value="'+M.questoes+'"></label>'+
+    '<label>Tópicos finalizados por semana<input id="mtT" type="number" min="0" placeholder="automático ('+auto+' nesta semana)" value="'+(M.topicos==null?'':M.topicos)+'"></label>'+
+    '<label>Mínimo para contar como dia estudado (hh:mm)<input id="mtD" value="'+fmtHM(M.minDia).replace('h','')+'" inputmode="numeric"></label></div>'+
+    '<div class="tiny muted" style="margin-bottom:8px">Sugestões: 20:00h (4h × 5 dias) e 100 questões. Deixe tópicos em branco para usar a meta calculada pelo planejamento (tópicos cujo último bloco cai na semana). Em semanas com folga ou parciais, as metas são proporcionais aos dias úteis.</div>'+
+    '<div class="row"><button class="pri" data-act="mtSalvar">Salvar metas</button><button data-act="mtPadrao">Valores sugeridos</button></div></div>';
+  return o;
+};
+ACOES.mtSalvar=()=>{
+  const h=parseHM($('#mtH').value),d=parseHM($('#mtD').value),q=$('#mtQ').value,t=$('#mtT').value.trim();
+  if(h==null||h<=0||d==null||d<1||q===''||+q<0||(t!==''&&+t<0)){toast('Revise os valores das metas (horas no formato 00:00)',1);return}
+  Object.assign(state.metas,{horas:h,questoes:Math.round(+q),topicos:t===''?null:Math.round(+t),minDia:d});commit();toast('Metas salvas');
+};
+ACOES.mtPadrao=()=>{Object.assign(state.metas,{horas:1200,questoes:100,topicos:null,minDia:30});commit();toast('Valores sugeridos restaurados')};
+
 /* =================== v2 · ETAPA 2: filtros e busca =================== */
 /* Os filtros só escondem itens da visualização: nada no planejamento, nas estatísticas ou nos dados muda. */
 const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
