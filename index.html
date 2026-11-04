@@ -1118,6 +1118,7 @@ VIEWS.config=function(){
    '</div><div class="row"><button class="pri" data-act="cfSalvar">Salvar preferências</button><button data-act="replanTudo">Redistribuir planejamento futuro</button></div>'+
    '<p class="small muted">“Redistribuir” mantém o que já tem status, foi movido/editado manualmente ou está no passado, e reorganiza o restante a partir de hoje.</p></div></div>';
   if(typeof htmlBackup==='function')h+=htmlBackup();
+  if(typeof htmlMapeamentos==='function')h+=htmlMapeamentos();
   return h;
 };
 
@@ -1832,6 +1833,93 @@ function htmlImpArquivos(){
   return h;
 }
 ACOES.impFechar=()=>{IMP=null;fecharModal()};
+/* ---- v3 · Etapa 2: mapeamento TEC → edital (matérias e assuntos) ---- */
+const IGN='__ign';
+const isNaoId=n=>['','nao identificada','nao identificado','sem materia','desconhecida'].includes(norm(n).trim());
+function bigramas(s){s=' '+norm(s).replace(/[^a-z0-9]+/g,' ').trim()+' ';const b=new Map();for(let i=0;i<s.length-1;i++){const g=s.slice(i,i+2);b.set(g,(b.get(g)||0)+1)}return b}
+function dice(a,b){const A=bigramas(a),B=bigramas(b);let x=0,na=0,nb=0;for(const v of A.values())na+=v;for(const v of B.values())nb+=v;for(const [g,v] of A)if(B.has(g))x+=Math.min(v,B.get(g));return na+nb?2*x/(na+nb):0}
+const REGRAS_MAT=[[/processual civil|\bcpc\b/,'pciv'],[/processual penal|\bcpp\b/,'ppen'],[/portugues|gramatica|interpretacao de texto/,'lp'],[/constitucional/,'const'],[/administrativ|improbidade|10\.?261/,'adm'],[/penal/,'pen'],[/\bcivil\b|lindb/,'civ'],[/informatica|windows|excel|\bword\b|microsoft/,'inf'],[/raciocinio|matematica|logica/,'mat'],[/atualidades|conhecimentos gerais|pessoa com deficiencia/,'atu'],[/normas|corregedoria|legislacao|execucao fiscal|6\.?830|taxa judiciaria/,'leg'],[/redacao|discursiva/,'disc']];
+function sugerirMateria(nome){
+  const n=norm(nome);for(const [re,id] of REGRAS_MAT)if(re.test(n)&&MAT[id])return id;
+  let best=null,bs=0;for(const m of state.materias){const sc=Math.max(dice(nome,m.nome),dice(nome,m.curto));if(sc>bs){bs=sc;best=m.id}}
+  return bs>=.5?best:null;
+}
+const STOP_ASS=new Set(['para','como','sobre','entre','arts','artigo','artigos','geral','gerais','direito','direitos','nocoes','lei','leis','disposicoes','parte','conceito']);
+const tokensAss=s=>[...new Set(norm(s).split(/[^a-z0-9]+/).filter(t=>t.length>=4&&!STOP_ASS.has(t)).map(t=>t.slice(0,5)))];
+function sugerirAssunto(mid,ass){
+  if(!ass||!MAT[mid])return '';const ta=tokensAss(ass);
+  let best='',bs=0,bp=1e9;
+  for(const t of MAT[mid].topicos){
+    if(norm(t.nome).trim()===norm(ass).trim())return t.id;
+    if(!ta.length)continue;
+    const desc=t.nome.includes('–')?t.nome.split('–').slice(1).join('–'):t.nome; // parte descritiva, sem os números de artigos
+    const td=tokensAss(desc),tt=new Set(tokensAss(t.nome));
+    const sc=ta.filter(x=>tt.has(x)).length/ta.length;
+    const pos=Math.min(...ta.map(x=>{const i=td.indexOf(x);return i<0?1e6:i}));  // desempate: termo aparece antes na descrição
+    if(sc>bs||(sc===bs&&sc>0&&pos<bp)){bs=sc;bp=pos;best=t.id}
+  }
+  return bs>=.6?best:'';
+}
+function sessoesAtivas(){return impSessoes().filter(s=>!s.jaImportada&&!s.dupLote)}
+function prepararMapa(){
+  const ie=impEstado(),mm=IMP.mm||(IMP.mm={}),ma=IMP.ma||(IMP.ma={});
+  for(const s of sessoesAtivas())for(const nome of [...s.tempo.map(x=>x.nome),...s.questoes.map(q=>q.nome)]){
+    if(isNaoId(nome))continue;const k=kk(nome);if(mm[k])continue;
+    const sv=ie.mapMat[k];
+    if(sv&&(sv.m===IGN||MAT[sv.m]))mm[k]={nome,esc:sv.m,fonte:'salvo'};
+    else{const ex=state.materias.find(m=>norm(m.nome).trim()===norm(nome).trim()||norm(m.curto).trim()===norm(nome).trim());
+      mm[k]=ex?{nome,esc:ex.id,fonte:'auto'}:{nome,esc:'',fonte:'pergunta',sug:sugerirMateria(nome)}}
+  }
+  IMP.mmList=Object.keys(mm);
+  // assuntos: dependem da matéria escolhida
+  for(const s of sessoesAtivas())for(const q of s.questoes){
+    if(!q.assunto||isNaoId(q.nome))continue;const e=mm[kk(q.nome)];if(!e||!e.esc||e.esc===IGN)continue;
+    const k=kk(e.esc+'|'+q.assunto);if(ma[k])continue;const sv=ie.mapAss[k];
+    ma[k]=sv&&(sv.t===''||TOP[sv.t])?{mid:e.esc,ass:q.assunto,esc:sv.t,fonte:'salvo'}:{mid:e.esc,ass:q.assunto,esc:sugerirAssunto(e.esc,q.assunto),fonte:'auto'};
+  }
+  IMP.maList=Object.keys(ma).filter(k=>{const x=ma[k];return Object.values(mm).some(e=>e.esc===x.mid)});
+}
+const pendentesMapa=()=>IMP.mmList.filter(k=>!IMP.mm[k].esc).length;
+function optsTopicosImp(mid,sel){return '<option value="">(sem assunto: guardar o original como observação)</option>'+MAT[mid].topicos.map(t=>'<option value="'+t.id+'"'+(t.id===sel?' selected':'')+'>'+esc(t.nome.length>80?t.nome.slice(0,78)+'…':t.nome)+'</option>').join('')}
+const FONTE_TX={salvo:'salvo',auto:'automático',pergunta:'escolha'};
+function htmlImpMapa(){
+  const pend=pendentesMapa();
+  let h='<p class="small muted">Correspondência entre os nomes do TEC e o edital cadastrado. Suas escolhas ficam salvas para as próximas importações (editáveis em “Folgas e backup”). Nenhuma matéria nova é criada no edital.</p>';
+  h+='<h4>Matérias</h4>'+(IMP.mmList.length?'<div class="tw"><table><tr><th>Nome no TEC</th><th>Matéria no StudyOS</th><th>Origem</th></tr>'+IMP.mmList.map((k,i)=>{const e=IMP.mm[k];
+    return '<tr'+(e.esc?'':' class="weak"')+'><td>'+esc(e.nome)+'</td><td><select data-impmm="'+i+'" aria-label="Matéria para '+esc(e.nome)+'"><option value="">— escolher —</option>'+state.materias.map(m=>'<option value="'+m.id+'"'+(e.esc===m.id?' selected':'')+'>'+esc(m.nome)+'</option>').join('')+'<option value="'+IGN+'"'+(e.esc===IGN?' selected':'')+'>Ignorar este nome (não importar)</option></select>'+
+      (!e.esc&&e.sug?' <button class="sm" data-act="impUsarSug" data-id="'+i+'">Usar sugestão: '+esc(MAT[e.sug].curto)+'</button>':'')+(!e.esc&&!e.sug?' <span class="tiny muted">sem sugestão</span>':'')+'</td><td class="tiny muted">'+FONTE_TX[e.fonte]+'</td></tr>'}).join('')+'</table></div>':'<div class="empty">Nenhuma matéria a mapear.</div>');
+  if(IMP.mmList.some(k=>!IMP.mm[k].esc&&IMP.mm[k].sug))h+='<div class="row" style="margin-top:6px"><button class="sm" data-act="impTodasSug">Aceitar todas as sugestões</button></div>';
+  h+='<h4 style="margin-top:14px">Assuntos</h4><p class="tiny muted">Associados automaticamente quando há correspondência com um assunto do edital. Sem correspondência, as questões entram só com a matéria e o assunto original fica como observação.</p>'+
+    (IMP.maList.length?'<div class="tw"><table><tr><th>Matéria</th><th>Assunto no TEC</th><th>Assunto do edital</th></tr>'+IMP.maList.map((k,i)=>{const a=IMP.ma[k];
+      return '<tr><td>'+tagMat(a.mid)+'</td><td>'+esc(a.ass)+'</td><td><select data-impma="'+i+'" aria-label="Assunto do edital para '+esc(a.ass)+'" style="max-width:100%">'+optsTopicosImp(a.mid,a.esc)+'</select></td></tr>'}).join('')+'</table></div>':'<div class="empty">Nenhum assunto informado nas questões.</div>');
+  h+='<div class="mft"><button data-act="impVoltar" data-id="arquivos">Voltar</button>'+(pend?'<span class="small" style="align-self:center;color:var(--red-ink)">Falta escolher '+pend+' matéria(s)</span>':'')+
+    (typeof htmlImpPrevia==='function'?'<button class="pri" data-act="impIrPrevia"'+(pend?' disabled':'')+'>Continuar para a prévia</button>':'')+'</div>';
+  return h;
+}
+ACOES.impIrMapa=()=>{prepararMapa();IMP.passo='mapa';atualizarImp()};
+ACOES.impVoltar=p=>{IMP.passo=p;atualizarImp()};
+ACOES.impUsarSug=i=>{const e=IMP.mm[IMP.mmList[+i]];e.esc=e.sug;prepararMapa();atualizarImp()};
+ACOES.impTodasSug=()=>{for(const k of IMP.mmList){const e=IMP.mm[k];if(!e.esc&&e.sug)e.esc=e.sug}prepararMapa();atualizarImp()};
+document.addEventListener('change',e=>{
+  const t=e.target;if(!IMP||!t.dataset)return;
+  if(t.dataset.impmm!==undefined){IMP.mm[IMP.mmList[+t.dataset.impmm]].esc=t.value;prepararMapa();atualizarImp();return}
+  if(t.dataset.impma!==undefined){const a=IMP.ma[IMP.maList[+t.dataset.impma]];a.esc=t.value;a.fonte='escolha';return}
+});
+/* ---- Ajustes: tabela de correspondência salva ---- */
+function htmlMapeamentos(){
+  const ie=impEstado(),mm=Object.entries(ie.mapMat),ma=Object.entries(ie.mapAss);
+  let h='<div class="panel" style="margin-top:14px"><h3>Correspondência TEC → edital</h3><div class="tiny muted" style="margin-bottom:8px">Usada pela importação de sessões da extensão. Salva no mesmo JSON do backup.</div>';
+  h+='<h4>Matérias ('+mm.length+')</h4>'+(mm.length?'<div class="tw"><table><tr><th>Nome no TEC</th><th>Matéria</th><th></th></tr>'+mm.map(([k,v],i)=>'<tr><td>'+esc(v.nome)+'</td><td><select data-mapmm="'+i+'" aria-label="Matéria">'+state.materias.map(m=>'<option value="'+m.id+'"'+(v.m===m.id?' selected':'')+'>'+esc(m.nome)+'</option>').join('')+'<option value="'+IGN+'"'+(v.m===IGN?' selected':'')+'>Ignorar este nome</option></select></td><td><button class="ico" data-act="mapDelMM" data-id="'+i+'" title="Excluir correspondência">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhuma correspondência de matéria salva ainda.</div>');
+  h+='<h4 style="margin-top:12px">Assuntos ('+ma.length+')</h4>'+(ma.length?'<div class="tw"><table><tr><th>Matéria</th><th>Assunto no TEC</th><th>Assunto do edital</th><th></th></tr>'+ma.map(([k,v],i)=>'<tr><td>'+(MAT[v.mid]?tagMat(v.mid):'—')+'</td><td>'+esc(v.ass)+'</td><td>'+(MAT[v.mid]?'<select data-mapma="'+i+'" aria-label="Assunto do edital" style="max-width:100%">'+optsTopicosImp(v.mid,v.t)+'</select>':'—')+'</td><td><button class="ico" data-act="mapDelMA" data-id="'+i+'" title="Excluir correspondência">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhuma correspondência de assunto salva ainda.</div>');
+  return h+'</div>';
+}
+ACOES.mapDelMM=i=>{const ie=impEstado(),k=Object.keys(ie.mapMat)[+i];if(!k)return;confirmar('Excluir a correspondência de “'+esc(ie.mapMat[k].nome)+'”? Na próxima importação o nome será perguntado de novo.',()=>{delete ie.mapMat[k];commit()},'Excluir')};
+ACOES.mapDelMA=i=>{const ie=impEstado(),k=Object.keys(ie.mapAss)[+i];if(!k)return;confirmar('Excluir a correspondência do assunto “'+esc(ie.mapAss[k].ass)+'”?',()=>{delete ie.mapAss[k];commit()},'Excluir')};
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t.dataset||!state)return;const ie=impEstado();
+  if(t.dataset.mapmm!==undefined){const k=Object.keys(ie.mapMat)[+t.dataset.mapmm];if(k){ie.mapMat[k].m=t.value;commit();toast('Correspondência atualizada')}return}
+  if(t.dataset.mapma!==undefined){const k=Object.keys(ie.mapAss)[+t.dataset.mapma];if(k){ie.mapAss[k].t=t.value;commit();toast('Correspondência atualizada')}return}
+});
 /*@@V3@@*/
 
 /* =================== v2 · ETAPA 4: painel "Hoje" =================== */
