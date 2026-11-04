@@ -1,0 +1,42 @@
+{
+ "versao": 1,
+ "origem": "studyos-tracker",
+ "sessoes": [
+  {
+   "id": "tec-fut-1",
+   "data": "2027-01-20",
+   "inicio": "2027-01-20T10:00:00-03:00",
+   "fim": "2027-01-20T10:00:00-03:00",
+   "duracaoMs": 3600000,
+   "tempoPorMateriaMs": {
+    "Direito Civil": 3600000
+   },
+   "questoes": [],
+   "naoLidas": 0
+  },
+  {
+   "id": "tec-17h-1",
+   "data": "2026-11-18",
+   "inicio": "2026-11-18T06:00:00-03:00",
+   "fim": "2026-11-18T06:00:00-03:00",
+   "duracaoMs": 61200000,
+   "tempoPorMateriaMs": {
+    "Direito Civil": 61200000
+   },
+   "questoes": [],
+   "naoLidas": 0
+  },
+  {
+   "id": "tec-soma-1",
+   "data": "2026-11-18",
+   "inicio": "2026-11-18T20:00:00-03:00",
+   "fim": "2026-11-18T20:00:00-03:00",
+   "duracaoMs": 1800000,
+   "tempoPorMateriaMs": {
+    "Direito Administrativo": 2400000
+   },
+   "questoes": [],
+   "naoLidas": 0
+  }
+ ]
+}

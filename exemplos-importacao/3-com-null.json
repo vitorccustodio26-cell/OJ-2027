@@ -1,0 +1,46 @@
+{
+ "versao": 1,
+ "origem": "studyos-tracker",
+ "sessoes": [
+  {
+   "id": "tec-null-1",
+   "data": "2026-11-16",
+   "inicio": "2026-11-16T08:00:00-03:00",
+   "fim": "2026-11-16T08:00:00-03:00",
+   "duracaoMs": 2700000,
+   "tempoPorMateriaMs": {
+    "Direito Constitucional": 2700000
+   },
+   "questoes": [
+    {
+     "idQuestao": "q200",
+     "materia": "Direito Constitucional",
+     "assunto": "Nacionalidade",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:20:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q201",
+     "materia": "Direito Constitucional",
+     "assunto": "Nacionalidade",
+     "resultado": null,
+     "horario": "2026-11-10T20:21:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q202",
+     "materia": "Direito Constitucional",
+     "assunto": "Direitos Políticos",
+     "resultado": null,
+     "horario": "2026-11-10T20:22:00-03:00",
+     "repetida": false,
+     "origem": "manual"
+    }
+   ],
+   "naoLidas": 1
+  }
+ ]
+}

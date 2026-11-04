@@ -268,6 +268,11 @@ i.hm{display:inline-block;width:12px;height:12px;padding:0;margin:0 2px;vertical
 .hatalhos{gap:6px}
 .hcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:10px}
 .hcards .card{margin-bottom:0}
+.impsteps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.impsteps span{font-size:12px;font-family:var(--ft);padding:3px 10px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.impsteps span.on{background:var(--accent-bg);color:var(--on-accent)}
+.dropz{border:2px dashed var(--line);border-radius:var(--r);padding:22px 14px;text-align:center;background:var(--soft)}
+.dropz.over{border-color:var(--accent);background:var(--over)}
 /*@@CSS_V2@@*/
 
 /* ===== Tablet (641–1024px): colunas com rolagem horizontal dentro do quadro ===== */
@@ -1193,7 +1198,8 @@ function soltarTopico(id,st){
 VIEWS.tempo=function(){
   const h=hoje(),ws=semanas(),w=ws[semanaAtualIdx()];
   const ed=ui.tEdit?state.tempos.find(x=>x.id===ui.tEdit):null;
-  let o='<h2>Tempo de Estudos</h2><div class="muted small" style="margin-bottom:12px">Lançamento diário e manual das horas por disciplina (formato 00:00h). O cronômetro dos blocos também lança aqui automaticamente.</div>';
+  let o='<h2>Tempo de Estudos</h2><div class="muted small" style="margin-bottom:12px">Lançamento diário e manual das horas por disciplina (formato 00:00h). O cronômetro dos blocos também lança aqui automaticamente.</div>'+
+    '<div class="row" style="margin:-4px 0 12px"><button data-act="impAbrir">⇩ Importar sessões da extensão</button></div>';
   o+='<div class="grid g2"><div class="panel"><h3>'+(ed?'Editar lançamento':'Novo lançamento')+'</h3><div class="fm">'+
     '<label>Data<input type="date" id="tpData" value="'+(ed?ed.data:h)+'"></label>'+
     '<label>Disciplina<select id="tpMat">'+optsMaterias(ed?ed.m:'',' Selecione…')+'</select></label>'+
@@ -1460,7 +1466,8 @@ function prioridades(){
 VIEWS.questoes=function(){
   const ed=ui.qEdit?state.questoes.find(q=>q.id===ui.qEdit):null;
   const am=state.config.amostraMin;
-  let o='<h2>Questões: registro e diagnóstico</h2><div class="muted small" style="margin-bottom:12px">Informe dois dos três campos (total, acertos, erros) e o terceiro é calculado. Cores: abaixo de 70% vermelho · 70% a 80% amarelo · acima de 80% verde.</div>';
+  let o='<h2>Questões: registro e diagnóstico</h2><div class="muted small" style="margin-bottom:12px">Informe dois dos três campos (total, acertos, erros) e o terceiro é calculado. Cores: abaixo de 70% vermelho · 70% a 80% amarelo · acima de 80% verde.</div>'+
+    '<div class="row" style="margin:-4px 0 12px"><button data-act="impAbrir">⇩ Importar sessões da extensão</button></div>';
   const pr=prioridades();
   const fr3=focoRecomendado().slice(0,3);
   o+='<div class="focus" style="margin-bottom:14px">'+(fr3.length?'🎯 Foque mais em: <b>'+fr3.map(x=>esc(x.m.nome)).join('</b>, <b>')+'</b>':'🎯 Registre mais questões para gerar a recomendação <span style="font-size:13px;opacity:.85">(mínimo de '+am+' questões por matéria)</span>')+'</div>';
@@ -1681,6 +1688,152 @@ async function aoIniciar(){
 
 
 /*@@V2_MODULOS@@*/
+/* =================== v3 · IMPORTAÇÃO DE SESSÕES DA EXTENSÃO "StudyOS Tracker" ===================
+   O arquivo é DADO EXTERNO: tudo é validado, todo texto é exibido com esc() e nada é executado.
+   Chaves vindas do arquivo nunca são usadas cruas como propriedade de objeto (prefixo "k:"). */
+const IMP_MAX_BYTES=5*1024*1024, IMP_MAX_SESSOES=5000, IMP_MAX_QUESTOES=20000, IMP_MAX_TXT=300;
+const IMP_TOL_MS=60000, IMP_MAX_DUR_MS=16*3600000;
+const kk=s=>'k:'+norm(s).trim();                       // chave segura e insensível a acento/maiúsculas
+const tipo=v=>v===null?'null':Array.isArray(v)?'array':typeof v;
+const dataValida=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&d2s(s2d(s))===s;
+function txt(v,campo,erros,obrig){ // texto puro, limitado
+  if(v===undefined||v===null){if(obrig)erros.push(campo+' ausente');return null}
+  if(typeof v!=='string'){erros.push(campo+' deve ser texto (veio '+tipo(v)+')');return null}
+  return v.slice(0,IMP_MAX_TXT);
+}
+const inteiroNN=v=>typeof v==='number'&&Number.isInteger(v)&&v>=0&&v<=Number.MAX_SAFE_INTEGER;
+function dataLocalDeISO(s){ // data de início como escrita no arquivo (no fuso de quem estudou), sem converter para o fuso do navegador
+  if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(s))return null;const d=s.slice(0,10);return dataValida(d)?d:null}
+/* Um leitor por versão do formato: para aceitar uma versão nova, basta acrescentar LEITORES[2] */
+const LEITORES={
+  1(obj,arquivo){
+    const erros=[],sessoes=[];
+    if(tipo(obj.sessoes)!=='array'){erros.push('campo "sessoes" ausente ou não é uma lista');return {erros,sessoes}}
+    if(obj.sessoes.length>IMP_MAX_SESSOES){erros.push('arquivo com mais de '+IMP_MAX_SESSOES+' sessões');return {erros,sessoes}}
+    obj.sessoes.forEach((s,i)=>{
+      const e=[],rot='sessão '+(i+1);
+      if(tipo(s)!=='object'){erros.push(rot+': não é um objeto');return}
+      const sid=txt(s.id,'id',e,true);if(sid!==null&&!sid.trim())e.push('id vazio');
+      if(!dataValida(s.data))e.push('data inválida ('+(typeof s.data==='string'?'"'+s.data.slice(0,20)+'"':tipo(s.data))+'), use AAAA-MM-DD');
+      const inicio=txt(s.inicio,'inicio',e,false),fim=txt(s.fim,'fim',e,false);
+      if(!inteiroNN(s.duracaoMs))e.push('duracaoMs deve ser inteiro não negativo');
+      const tempo=[];
+      if(tipo(s.tempoPorMateriaMs)!=='object')e.push('tempoPorMateriaMs ausente ou não é um objeto');
+      else for(const [nome,ms] of Object.entries(s.tempoPorMateriaMs)){
+        if(!inteiroNN(ms)){e.push('tempo de "'+nome.slice(0,60)+'" deve ser inteiro não negativo (ms)');continue}
+        if(ms>0)tempo.push({nome:nome.slice(0,IMP_MAX_TXT),ms});
+      }
+      const questoes=[];
+      if(s.questoes===undefined)s.questoes=[];
+      if(tipo(s.questoes)!=='array')e.push('questoes deve ser uma lista');
+      else if(s.questoes.length>IMP_MAX_QUESTOES)e.push('mais de '+IMP_MAX_QUESTOES+' questões');
+      else s.questoes.forEach((q,j)=>{
+        const qe=[];if(tipo(q)!=='object'){e.push('questão '+(j+1)+': não é um objeto');return}
+        const qid=txt(q.idQuestao,'idQuestao',qe,true),nome=txt(q.materia,'materia',qe,true),ass=txt(q.assunto,'assunto',qe,false);
+        if(!(q.resultado===null||q.resultado===undefined||q.resultado==='acerto'||q.resultado==='erro'))qe.push('resultado deve ser "acerto", "erro" ou null');
+        if(q.repetida!==undefined&&typeof q.repetida!=='boolean')qe.push('repetida deve ser verdadeiro/falso');
+        if(q.origem!==undefined&&q.origem!=='auto'&&q.origem!=='manual')qe.push('origem deve ser "auto" ou "manual"');
+        const hor=txt(q.horario,'horario',qe,false);
+        if(qe.length){e.push('questão '+(j+1)+': '+qe.join('; '));return}
+        questoes.push({qid,nome,assunto:ass,resultado:q.resultado==null?null:q.resultado,horario:hor,repetida:!!q.repetida,origem:q.origem||'auto'});
+      });
+      if(s.naoLidas!==undefined&&!inteiroNN(s.naoLidas))e.push('naoLidas deve ser inteiro não negativo');
+      if(e.length){erros.push(rot+(sid?' ('+sid.slice(0,40)+')':'')+': '+e.slice(0,4).join('; ')+(e.length>4?'…':''));return}
+      // avisos (não bloqueiam)
+      const avisos=[];let confirmar=false;
+      let data=s.data;const di=dataLocalDeISO(inicio);
+      if(di&&di!==data){avisos.push('data do arquivo ('+fmtBR(data,1)+') difere da data de início ('+fmtBR(di,1)+'): usada a data de início');data=di}
+      const somaT=tempo.reduce((a,x)=>a+x.ms,0);
+      if(somaT>s.duracaoMs+Math.max(IMP_TOL_MS,s.duracaoMs*.02))avisos.push('soma do tempo por matéria ('+fmtHM(somaT/60000)+') passa da duração da sessão ('+fmtHM(s.duracaoMs/60000)+')');
+      if(data>hoje()){avisos.push('sessão com data futura ('+fmtBR(data,1)+')');confirmar=true}
+      if(s.duracaoMs>IMP_MAX_DUR_MS){avisos.push('duração acima de 16h ('+fmtHM(s.duracaoMs/60000)+')');confirmar=true}
+      if(s.naoLidas>0)avisos.push(s.naoLidas+' questão(ões) não lida(s) pela extensão');
+      sessoes.push({sid,arquivo,data,inicio,fim,duracaoMs:s.duracaoMs,tempo,questoes,naoLidas:s.naoLidas||0,avisos,confirmar});
+    });
+    return {erros,sessoes};
+  }
+};
+const VERSOES_IMP=Object.keys(LEITORES).map(Number);
+function lerArquivoExtensao(texto,arquivo){ // retorna {ok, erro, sessoes} sem efeito colateral
+  let obj;
+  try{obj=JSON.parse(texto)}catch(e){return {ok:false,erro:'não é um JSON válido ('+String(e.message).slice(0,120)+')'}}
+  if(tipo(obj)!=='object')return {ok:false,erro:'o conteúdo não é um objeto JSON'};
+  if(obj.origem!=='studyos-tracker')return {ok:false,erro:'origem "'+String(obj.origem??'(ausente)').slice(0,40)+'" não reconhecida: o arquivo precisa ter origem "studyos-tracker"'};
+  if(!LEITORES[obj.versao])return {ok:false,erro:'versão '+String(obj.versao??'(ausente)').slice(0,20)+' do formato não é suportada. Este StudyOS entende a(s) versão(ões): '+VERSOES_IMP.join(', ')+'. Atualize o StudyOS.'};
+  const r=LEITORES[obj.versao](obj,arquivo);
+  if(r.erros.length)return {ok:false,erro:r.erros.length+' problema(s): '+r.erros.slice(0,5).join(' · ')+(r.erros.length>5?' · …':'')};
+  if(!r.sessoes.length)return {ok:false,erro:'nenhuma sessão no arquivo'};
+  return {ok:true,versao:obj.versao,sessoes:r.sessoes};
+}
+function lerArquivoFile(f){
+  return new Promise(res=>{
+    if(f.size>IMP_MAX_BYTES)return res({nome:f.name,ok:false,erro:'arquivo com '+(f.size/1048576).toFixed(1)+' MB; o limite é 5 MB'});
+    if(!/\.json$/i.test(f.name)&&f.type&&f.type!=='application/json')return res({nome:f.name,ok:false,erro:'não é um arquivo .json'});
+    const r=new FileReader();
+    r.onload=()=>res(Object.assign({nome:f.name},lerArquivoExtensao(String(r.result),f.name)));
+    r.onerror=()=>res({nome:f.name,ok:false,erro:'não foi possível ler o arquivo'});
+    r.readAsText(f);
+  });
+}
+function impEstado(){if(!state.importacao)state.importacao={mapMat:{},mapAss:{},sessoes:{},historico:[]};return state.importacao}
+/* ---- Assistente de importação (estado temporário: nada é gravado até a confirmação final) ---- */
+let IMP=null;
+ACOES.impAbrir=()=>{IMP={passo:'arquivos',arquivos:[]};renderImp()};
+function renderImp(){
+  const ov=modal('<div id="impBox"></div>',{wide:true,travar:true});
+  const b=$('#impBox',ov);b.innerHTML=htmlImpPasso();rotularTabelas(b);
+  ligarDropzone(b);
+}
+function atualizarImp(){const b=$('#impBox');if(!b)return renderImp();const sy=$('#ov').scrollTop;b.innerHTML=htmlImpPasso();rotularTabelas(b);ligarDropzone(b);$('#ov').scrollTop=sy}
+function ligarDropzone(root){
+  const z=$('.dropz',root);if(!z)return;
+  z.addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){e.preventDefault();z.classList.add('over')}});
+  z.addEventListener('dragleave',()=>z.classList.remove('over'));
+  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('over');if(e.dataTransfer.files.length)impReceber([...e.dataTransfer.files])});
+}
+ACOES.impEscolher=()=>{const i=document.createElement('input');i.type='file';i.multiple=true;i.accept='.json,application/json';i.onchange=()=>i.files.length&&impReceber([...i.files]);i.click()};
+async function impReceber(files){
+  const lidos=await Promise.all(files.map(lerArquivoFile));
+  IMP.arquivos.push(...lidos);
+  marcarSessoes();
+  IMP.passo='arquivos';atualizarImp();
+}
+function marcarSessoes(){ // já importadas e duplicadas no próprio lote
+  const ie=impEstado(),vistos=new Set();
+  for(const a of IMP.arquivos)if(a.ok)for(const s of a.sessoes){
+    s.jaImportada=!!ie.sessoes[kk(s.sid)];s.dupLote=vistos.has(s.sid);vistos.add(s.sid);
+    if(s.incluir===undefined)s.incluir=!s.jaImportada&&!s.dupLote&&!s.confirmar;
+  }
+}
+const impSessoes=()=>IMP.arquivos.filter(a=>a.ok).flatMap(a=>a.sessoes);
+ACOES.impRemArq=i=>{IMP.arquivos.splice(+i,1);marcarSessoes();atualizarImp()};
+function htmlImpPasso(){
+  const passos=[['arquivos','1. Arquivos'],['mapa','2. Matérias e assuntos'],['previa','3. Prévia'],['fim','4. Resumo']];
+  let h='<div class="row" style="margin-bottom:8px"><h3 style="margin:0">Importar sessões da extensão</h3><span class="sp"></span><button class="ico" data-act="impFechar" aria-label="Fechar">✕</button></div>'+
+    '<div class="impsteps">'+passos.map(([k,n])=>'<span class="'+(IMP.passo===k?'on':'')+'">'+n+'</span>').join('')+'</div>';
+  if(IMP.passo==='arquivos')h+=htmlImpArquivos();
+  else if(IMP.passo==='mapa'&&typeof htmlImpMapa==='function')h+=htmlImpMapa();
+  else if(IMP.passo==='previa'&&typeof htmlImpPrevia==='function')h+=htmlImpPrevia();
+  else if(IMP.passo==='fim'&&typeof htmlImpFim==='function')h+=htmlImpFim();
+  return h;
+}
+function htmlImpArquivos(){
+  const A=IMP.arquivos,ok=A.filter(a=>a.ok),ss=impSessoes();
+  const nq=ss.reduce((a,s)=>a+s.questoes.length,0),ja=ss.filter(s=>s.jaImportada).length,dup=ss.filter(s=>s.dupLote).length;
+  let h='<div class="dropz" tabindex="0"><div style="font-size:15px;color:var(--ink)">Arraste aqui um ou mais arquivos <b>.json</b> da extensão StudyOS Tracker</div><div class="small muted" style="margin:6px 0 10px">ou</div><button class="pri" data-act="impEscolher">Escolher arquivos…</button><div class="tiny muted" style="margin-top:8px">Até 5 MB por arquivo. Nada é gravado antes da prévia e da sua confirmação.</div></div>';
+  if(A.length){
+    h+='<div class="grid g3" style="margin:12px 0"><div class="kpi"><b>'+A.length+'</b><span>arquivo(s) · '+ok.length+' válido(s)</span></div><div class="kpi"><b>'+ss.length+'</b><span>sessões lidas</span></div><div class="kpi"><b>'+nq+'</b><span>questões lidas</span></div><div class="kpi"><b>'+ja+'</b><span>sessões já importadas antes</span></div>'+(dup?'<div class="kpi"><b>'+dup+'</b><span>repetidas entre os arquivos</span></div>':'')+'</div>';
+    h+=A.map((a,i)=>'<div class="'+(a.ok?'ok':'err')+'" style="margin-bottom:6px"><div class="row"><b class="ft">'+(a.ok?'✓ ':'✕ ')+esc(a.nome)+'</b><span class="sp"></span><button class="sm" data-act="impRemArq" data-id="'+i+'">Remover</button></div>'+
+      (a.ok?'<div class="small">'+a.sessoes.length+' sessão(ões) · '+a.sessoes.reduce((x,s)=>x+s.questoes.length,0)+' questões · formato versão '+a.versao+'</div>'+
+        a.sessoes.filter(s=>s.avisos.length||s.jaImportada||s.dupLote).map(s=>'<div class="tiny">• '+fmtBR(s.data,1)+' ('+esc(s.sid.slice(0,40))+'): '+esc([s.jaImportada?'já importada antes':'',s.dupLote?'repetida em outro arquivo deste lote':'',...s.avisos].filter(Boolean).join(' · '))+'</div>').join('')
+       :'<div class="small">Arquivo recusado: '+esc(a.erro)+'</div>')+'</div>').join('');
+  }
+  h+='<div class="mft"><button data-act="impFechar">Cancelar</button>'+(typeof htmlImpMapa==='function'?'<button class="pri" data-act="impIrMapa"'+(ss.length?'':' disabled')+'>Continuar</button>':'')+'</div>';
+  return h;
+}
+ACOES.impFechar=()=>{IMP=null;fecharModal()};
+/*@@V3@@*/
+
 /* =================== v2 · ETAPA 4: painel "Hoje" =================== */
 /* Usa exatamente as mesmas funções das outras abas (sem números próprios), por isso não há divergência. */
 function diasEstudoRestantes(){const h=hoje();return semanas().flatMap(w=>w.dias).filter(s=>isDiaEstudo(s)&&s>=h&&s<=REV_FIM).length}

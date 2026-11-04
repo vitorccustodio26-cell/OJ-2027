@@ -1,0 +1,55 @@
+{
+ "versao": 1,
+ "origem": "studyos-tracker",
+ "sessoes": [
+  {
+   "id": "tec-rep-1",
+   "data": "2026-11-13",
+   "inicio": "2026-11-13T18:00:00-03:00",
+   "fim": "2026-11-13T18:00:00-03:00",
+   "duracaoMs": 3600000,
+   "tempoPorMateriaMs": {
+    "Informática": 3600000
+   },
+   "questoes": [
+    {
+     "idQuestao": "q100",
+     "materia": "Informática",
+     "assunto": "Excel",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:40:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q101",
+     "materia": "Informática",
+     "assunto": "Excel",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:41:00-03:00",
+     "repetida": true,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q102",
+     "materia": "Informática",
+     "assunto": "Excel",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:42:00-03:00",
+     "repetida": true,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q103",
+     "materia": "Informática",
+     "assunto": "Word",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:43:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    }
+   ],
+   "naoLidas": 0
+  }
+ ]
+}

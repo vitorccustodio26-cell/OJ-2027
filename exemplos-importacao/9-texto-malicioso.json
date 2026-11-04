@@ -1,0 +1,30 @@
+{
+ "versao": 1,
+ "origem": "studyos-tracker",
+ "sessoes": [
+  {
+   "id": "<img src=x onerror=alert(1)>",
+   "data": "2026-11-19",
+   "inicio": "2026-11-19T10:00:00-03:00",
+   "fim": "2026-11-19T10:00:00-03:00",
+   "duracaoMs": 1800000,
+   "tempoPorMateriaMs": {
+    "<script>alert('x')</script>": 900000,
+    "__proto__": 600000,
+    "Direito Civil": 300000
+   },
+   "questoes": [
+    {
+     "idQuestao": "q900",
+     "materia": "<b onmouseover=alert(2)>Civil</b>",
+     "assunto": "<svg onload=alert(3)>",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:00:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    }
+   ],
+   "naoLidas": 0
+  }
+ ]
+}

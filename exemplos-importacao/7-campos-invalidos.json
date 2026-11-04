@@ -1,0 +1,21 @@
+{
+ "versao": 1,
+ "origem": "studyos-tracker",
+ "sessoes": [
+  {
+   "id": "bad-1",
+   "data": "2026-02-30",
+   "duracaoMs": -5,
+   "tempoPorMateriaMs": {
+    "Direito Civil": "10"
+   },
+   "questoes": [
+    {
+     "idQuestao": "z",
+     "materia": "Direito Civil",
+     "resultado": "talvez"
+    }
+   ]
+  }
+ ]
+}

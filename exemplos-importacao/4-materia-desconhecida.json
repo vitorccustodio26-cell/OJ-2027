@@ -1,0 +1,48 @@
+{
+ "versao": 1,
+ "origem": "studyos-tracker",
+ "sessoes": [
+  {
+   "id": "tec-desc-1",
+   "data": "2026-11-17",
+   "inicio": "2026-11-17T09:00:00-03:00",
+   "fim": "2026-11-17T09:00:00-03:00",
+   "duracaoMs": 4800000,
+   "tempoPorMateriaMs": {
+    "Direito Processual Penal - CPP": 1800000,
+    "Noções de Direito Notarial": 1200000,
+    "Não identificada": 1800000
+   },
+   "questoes": [
+    {
+     "idQuestao": "q300",
+     "materia": "Direito Processual Penal - CPP",
+     "assunto": "Busca e Apreensão",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:00:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q301",
+     "materia": "Noções de Direito Notarial",
+     "assunto": "Tabelionato",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:01:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q302",
+     "materia": "Não identificada",
+     "assunto": null,
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:02:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    }
+   ],
+   "naoLidas": 0
+  }
+ ]
+}

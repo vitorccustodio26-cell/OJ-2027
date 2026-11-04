@@ -1,0 +1,204 @@
+{
+ "versao": 1,
+ "origem": "studyos-tracker",
+ "sessoes": [
+  {
+   "id": "tec-2026-11-10-a",
+   "data": "2026-11-10",
+   "inicio": "2026-11-10T19:00:00-03:00",
+   "fim": "2026-11-10T19:00:00-03:00",
+   "duracaoMs": 7200000,
+   "tempoPorMateriaMs": {
+    "Direito Penal": 4220000,
+    "Português": 2990000
+   },
+   "questoes": [
+    {
+     "idQuestao": "q1",
+     "materia": "Direito Penal",
+     "assunto": "Peculato",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:01:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q2",
+     "materia": "Direito Penal",
+     "assunto": "Peculato",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:02:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q3",
+     "materia": "Direito Penal",
+     "assunto": "Peculato",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:03:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q4",
+     "materia": "Direito Penal",
+     "assunto": "Corrupção Passiva",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:04:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q5",
+     "materia": "Português",
+     "assunto": "Crase",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:05:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q6",
+     "materia": "Português",
+     "assunto": "Crase",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:06:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q7",
+     "materia": "Português",
+     "assunto": "Concordância Verbal",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:07:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    }
+   ],
+   "naoLidas": 0
+  },
+  {
+   "id": "tec-2026-11-12-a",
+   "data": "2026-11-12",
+   "inicio": "2026-11-12T23:30:00-03:00",
+   "fim": "2026-11-12T23:30:00-03:00",
+   "duracaoMs": 5400000,
+   "tempoPorMateriaMs": {
+    "Direito Processual Civil": 5400000
+   },
+   "questoes": [
+    {
+     "idQuestao": "q10",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:10:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q11",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:11:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q12",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:12:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q13",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:13:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q14",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:14:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q15",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:15:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q16",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:16:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q17",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:17:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q18",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:18:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q19",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "erro",
+     "horario": "2026-11-10T20:19:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q20",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:20:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    },
+    {
+     "idQuestao": "q21",
+     "materia": "Direito Processual Civil",
+     "assunto": "Citação",
+     "resultado": "acerto",
+     "horario": "2026-11-10T20:21:00-03:00",
+     "repetida": false,
+     "origem": "auto"
+    }
+   ],
+   "naoLidas": 0
+  }
+ ]
+}
