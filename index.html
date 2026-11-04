@@ -273,6 +273,9 @@ i.hm{display:inline-block;width:12px;height:12px;padding:0;margin:0 2px;vertical
 .impsteps span.on{background:var(--accent-bg);color:var(--on-accent)}
 .dropz{border:2px dashed var(--line);border-radius:var(--r);padding:22px 14px;text-align:center;background:var(--soft)}
 .dropz.over{border-color:var(--accent);background:var(--over)}
+.impsess{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--card)}
+.impsess.off{opacity:.65}
+details summary{cursor:pointer}
 /*@@CSS_V2@@*/
 
 /* ===== Tablet (641–1024px): colunas com rolagem horizontal dentro do quadro ===== */
@@ -620,7 +623,7 @@ function estadoInicial(){
     materias,ciclo:clone(CICLO_PADRAO),folgas:clone(FOLGAS_PADRAO),cards:[],finalizadoEm:{},tempos:[],questoes:[],
     config:{cargaMax:240,maxDisc:3,amostraMin:20,revMin:{1:15,7:15,30:20},pomodoro:false,pomoFoco:25,pomoPausa:5,som:true},
     timer:null,meta:{ultimoBackupExterno:null,ultimaCopiaDiaria:null},
-    prefs:{tema:'auto'},filtros:{atual:{plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[]}},salvos:[]},
+    prefs:{tema:'auto'},filtros:{atual:{plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[],origem:[]},tempo:{q:'',mats:[],origem:[]}},salvos:[]},
     metas:{horas:1200,questoes:100,topicos:null,minDia:30,historico:{}},constancia:{maior:0,atualizadoEm:null}/*@@ESTADO_V2@@*/};
 }
 function indexar(){
@@ -1220,8 +1223,9 @@ VIEWS.tempo=function(){
   o+='<div class="panel" style="margin-top:14px"><h3>Semana atual, dia a dia</h3><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">'+w.dias.map(d=>{const ts=state.tempos.filter(t=>t.data===d);const mn=ts.reduce((a,t)=>a+t.min,0);const pl=state.cards.filter(c=>c.data===d).reduce((a,c)=>a+c.min,0);
     return '<div class="kpi"><span>'+DIAS[dow(d)]+' '+fmtBR(d)+'</span><b>'+fmtHM(mn)+'</b><span>planejado '+fmtHM(pl)+'</span></div>'}).join('')+'</div></div>';
   // histórico
-  const hist=state.tempos.slice().sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.criado||0)-(a.criado||0));
-  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+(hist.length?'<div class="tw"><table><tr><th>Data</th><th>Disciplina</th><th>Horas</th><th>Origem</th><th>Obs.</th><th></th></tr>'+hist.map(t=>'<tr><td>'+fmtBR(t.data,1)+'</td><td>'+(MAT[t.m]?tagMat(t.m):'—')+'</td><td><b>'+fmtHM(t.min)+'</b></td><td class="small muted">'+(t.origem==='cronometro'?'⏱ cronômetro':'manual')+'</td><td class="small">'+esc(t.obs||'')+'</td><td style="white-space:nowrap"><button class="ico" data-act="tpEdit" data-id="'+t.id+'">✎</button><button class="ico" data-act="tpDel" data-id="'+t.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhum lançamento ainda.</div>')+'</div>';
+  const ftp=F('tempo'),fat=filtroAtivo('tempo');
+  const hist=state.tempos.filter(t=>!fat||casaTempo(t,ftp)).sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.criado||0)-(a.criado||0));
+  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+htmlFiltroBar('tempo',fat?hist.length+' de '+state.tempos.length+' lançamentos':'','Buscar por disciplina, observação ou data…')+'<div style="height:10px"></div>'+(fat&&state.tempos.length&&!hist.length?htmlSemResultado('tempo'):hist.length?'<div class="tw"><table><tr><th>Data</th><th>Disciplina</th><th>Horas</th><th>Origem</th><th>Obs.</th><th></th></tr>'+hist.map(t=>'<tr><td>'+fmtBR(t.data,1)+'</td><td>'+(MAT[t.m]?tagMat(t.m):'—')+'</td><td><b>'+fmtHM(t.min)+'</b></td><td class="small muted"'+(t.imp?' title="Importação '+esc(t.imp.id)+' · sessão '+esc(t.imp.sid)+'"':'')+'>'+ORIGEM_TX[t.origem||'manual']+'</td><td class="small">'+esc(t.obs||'')+'</td><td style="white-space:nowrap"><button class="ico" data-act="tpEdit" data-id="'+t.id+'">✎</button><button class="ico" data-act="tpDel" data-id="'+t.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhum lançamento ainda.</div>')+'</div>';
   return o;
 };
 ACOES.tpSalvar=()=>{
@@ -1493,7 +1497,7 @@ VIEWS.questoes=function(){
   // histórico
   const fq=F('questoes'),faq=filtroAtivo('questoes');
   const hist=state.questoes.filter(q=>!faq||casaQuestao(q,fq)).sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.criado||0)-(a.criado||0));
-  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+htmlFiltroBar('questoes',faq?hist.length+' de '+state.questoes.length+' registros':'','Buscar por matéria, assunto ou data…')+'<div style="height:10px"></div>'+(faq&&state.questoes.length&&!hist.length?htmlSemResultado('questoes'):hist.length?'<div class="tw"><table><tr><th>Data</th><th>Matéria</th><th>Assunto</th><th>Total</th><th>Acertos</th><th>Erros</th><th>%</th><th></th></tr>'+hist.map(q=>'<tr><td>'+fmtBR(q.data,1)+'</td><td>'+(MAT[q.m]?tagMat(q.m):'—')+'</td><td class="small">'+esc(q.t&&TOP[q.t]?TOP[q.t].t.nome:'—')+'</td><td>'+q.total+'</td><td>'+q.ok+'</td><td>'+q.err+'</td><td>'+accTag(q.ok,q.total)+'</td><td style="white-space:nowrap"><button class="ico" data-act="qEditar" data-id="'+q.id+'">✎</button><button class="ico" data-act="qDel" data-id="'+q.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhuma questão registrada.</div>')+'</div>';
+  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+htmlFiltroBar('questoes',faq?hist.length+' de '+state.questoes.length+' registros':'','Buscar por matéria, assunto ou data…')+'<div style="height:10px"></div>'+(faq&&state.questoes.length&&!hist.length?htmlSemResultado('questoes'):hist.length?'<div class="tw"><table><tr><th>Data</th><th>Matéria</th><th>Assunto</th><th>Total</th><th>Acertos</th><th>Erros</th><th>%</th><th>Origem</th><th></th></tr>'+hist.map(q=>'<tr><td>'+fmtBR(q.data,1)+'</td><td>'+(MAT[q.m]?tagMat(q.m):'—')+'</td><td class="small">'+esc(q.t&&TOP[q.t]?TOP[q.t].t.nome:'—')+(q.obs?'<div class="tiny muted">'+esc(q.obs)+'</div>':'')+'</td><td>'+q.total+'</td><td>'+q.ok+'</td><td>'+q.err+'</td><td>'+accTag(q.ok,q.total)+'</td><td class="small muted"'+(q.imp?' title="Importação '+esc(q.imp.id)+' · sessão(ões) '+esc(q.imp.sids.join(', '))+'"':'')+'>'+ORIGEM_TX[q.origem||'manual']+'</td><td style="white-space:nowrap"><button class="ico" data-act="qEditar" data-id="'+q.id+'">✎</button><button class="ico" data-act="qDel" data-id="'+q.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhuma questão registrada.</div>')+'</div>';
   return o;
 };
 function htmlDetalheQ(mid){
@@ -1860,7 +1864,7 @@ function sugerirAssunto(mid,ass){
   }
   return bs>=.6?best:'';
 }
-function sessoesAtivas(){return impSessoes().filter(s=>!s.jaImportada&&!s.dupLote)}
+function sessoesAtivas(){return impSessoes().filter(s=>!s.dupLote)} // já importadas aparecem desmarcadas, mas podem ser marcadas (com aviso)
 function prepararMapa(){
   const ie=impEstado(),mm=IMP.mm||(IMP.mm={}),ma=IMP.ma||(IMP.ma={});
   for(const s of sessoesAtivas())for(const nome of [...s.tempo.map(x=>x.nome),...s.questoes.map(q=>q.nome)]){
@@ -1920,6 +1924,167 @@ document.addEventListener('change',e=>{
   if(t.dataset.mapmm!==undefined){const k=Object.keys(ie.mapMat)[+t.dataset.mapmm];if(k){ie.mapMat[k].m=t.value;commit();toast('Correspondência atualizada')}return}
   if(t.dataset.mapma!==undefined){const k=Object.keys(ie.mapAss)[+t.dataset.mapma];if(k){ie.mapAss[k].t=t.value;commit();toast('Correspondência atualizada')}return}
 });
+/* ---- v3 · Etapa 3: prévia, conversão e gravação atômica ---- */
+const DESC='__desc';
+function midDe(nome,s){
+  if(isNaoId(nome))return s.naoIdEsc&&s.naoIdEsc!==DESC?s.naoIdEsc:null;
+  const e=IMP.mm&&IMP.mm[kk(nome)];return e&&e.esc&&e.esc!==IGN?e.esc:null;
+}
+const temNaoId=s=>s.tempo.some(x=>isNaoId(x.nome))||s.questoes.some(q=>isNaoId(q.nome));
+/* Converte as sessões marcadas em lançamentos. Mesmo cálculo para a prévia e para a gravação. */
+function construirPlano(){
+  const P={tempos:[],questoes:[],porSessao:{},ign:{sessoes:0,msIgnorado:0,msDescartado:0,repetidas:0,nulas:0,qIgnoradas:0,pulados:[],zero:0},dup:[],pend:[]};
+  const grupos=new Map();
+  for(const s of sessoesAtivas()){
+    if(!s.incluir){P.ign.sessoes++;continue}
+    if(temNaoId(s)&&!s.naoIdEsc)P.pend.push('escolher a matéria do trecho “Não identificada” da sessão de '+fmtBR(s.data,1));
+    const ps=P.porSessao[s.sid]={ms:{},min:{},q:{total:0,ok:0,err:0},rep:0,nulas:0,ign:[]};
+    for(const x of s.tempo){
+      const mid=midDe(x.nome,s);
+      if(!mid){if(isNaoId(x.nome)&&s.naoIdEsc===DESC)P.ign.msDescartado+=x.ms;else P.ign.msIgnorado+=x.ms;ps.ign.push(x.nome);continue}
+      ps.ms[mid]=(ps.ms[mid]||0)+x.ms;
+    }
+    for(const [mid,ms] of Object.entries(ps.ms)){
+      const min=Math.round(ms/60000);ps.min[mid]=min;
+      if(min<=0){P.ign.zero++;continue}
+      P.tempos.push({data:s.data,m:mid,min,sid:s.sid});
+    }
+    ps.somaArred=Object.values(ps.min).reduce((a,b)=>a+b,0);
+    ps.totalArred=Math.round(Object.values(ps.ms).reduce((a,b)=>a+b,0)/60000);
+    s.questoes.forEach(q=>{
+      if(q.repetida){ps.rep++;if(!q.incluirRep){P.ign.repetidas++;return}}
+      const r=q.resultado||q.corr||null;
+      if(!r){ps.nulas++;P.ign.nulas++;return}
+      const mid=midDe(q.nome,s);if(!mid){P.ign.qIgnoradas++;return}
+      const ma=q.assunto?IMP.ma&&IMP.ma[kk(mid+'|'+q.assunto)]:null,tid=ma&&ma.esc&&TOP[ma.esc]?ma.esc:null;
+      const key=s.data+'|'+mid+'|'+(tid||'o:'+norm(q.assunto||''));
+      let g=grupos.get(key);
+      if(!g){g={data:s.data,m:mid,t:tid,total:0,ok:0,err:0,obs:!tid&&q.assunto?'Assunto original: '+q.assunto:'',sids:new Set()};grupos.set(key,g)}
+      g.total++;if(r==='acerto')g.ok++;else g.err++;g.sids.add(s.sid);
+      ps.q.total++;if(r==='acerto')ps.q.ok++;else ps.q.err++;
+    });
+  }
+  P.questoes=[...grupos.values()].map(g=>Object.assign(g,{sids:[...g.sids]}));
+  // possível duplicidade com horas lançadas no StudyOS (manual ou cronômetro) na mesma data e matéria
+  const chaves=[...new Set(P.tempos.map(t=>t.data+'|'+t.m))];
+  IMP.dup=IMP.dup||{};
+  for(const k of chaves){
+    const [data,m]=k.split('|');
+    const exist=state.tempos.filter(t=>t.data===data&&t.m===m&&t.origem!=='importado').reduce((a,t)=>a+t.min,0);
+    if(!exist)continue;
+    const imp=P.tempos.filter(t=>t.data===data&&t.m===m).reduce((a,t)=>a+t.min,0);
+    P.dup.push({k,data,m,exist,imp,esc:IMP.dup[k]||''});
+    if(!IMP.dup[k])P.pend.push('decidir entre somar ou pular as horas de '+MAT[m].curto+' em '+fmtBR(data,1));
+    else if(IMP.dup[k]==='pular'){P.tempos=P.tempos.filter(t=>!(t.data===data&&t.m===m));P.ign.pulados.push(MAT[m].curto+' '+fmtBR(data))}
+  }
+  P.totMin=P.tempos.reduce((a,t)=>a+t.min,0);P.totQ=P.questoes.reduce((a,g)=>a+g.total,0);
+  P.nSessoes=sessoesAtivas().filter(s=>s.incluir).length;
+  return P;
+}
+function htmlImpPrevia(){
+  const P=construirPlano(),ss=impSessoes();
+  let h='<p class="small muted">Confira cada sessão. Marque ou desmarque o que entra. Nada foi gravado ainda.</p>';
+  h+=ss.map((s,si)=>{
+    const ps=P.porSessao[s.sid],bloq=s.jaImportada||s.dupLote;
+    const av=[...(s.jaImportada?['ATENÇÃO: esta sessão já foi importada antes. Marcar a caixa importa de novo e duplica os lançamentos.']:[]),...(s.dupLote?['repetida em outro arquivo deste lote']:[]),...s.avisos];
+    let c='<div class="impsess'+(s.incluir?'':' off')+'"><div class="row"><label class="row" style="gap:6px"><input type="checkbox" data-impinc="'+si+'"'+(s.incluir?' checked':'')+(s.dupLote?' disabled':'')+'><b class="ft">'+DIAS[dow(s.data)]+' '+fmtBR(s.data,1)+'</b></label><span class="tiny muted">'+esc(s.arquivo)+' · sessão '+esc(s.sid.slice(0,48))+'</span><span class="sp"></span><span class="small">'+fmtHM(s.duracaoMs/60000)+' no total</span></div>';
+    if(av.length)c+='<div class="warn tiny" style="margin-top:6px;padding:6px 8px">'+av.map(esc).join('<br>')+(s.confirmar&&!s.incluir&&!bloq?'<br><b>Marque a caixa para confirmar a inclusão.</b>':'')+'</div>';
+    if(s.incluir&&ps){
+      // tempo por matéria
+      const linhasT=s.tempo.map(x=>{const mid=midDe(x.nome,s);return '<div class="mini"><span class="t"><div>'+esc(x.nome)+' → '+(mid?tagMat(mid):isNaoId(x.nome)?'<span class="tag late">escolha abaixo</span>':'<span class="tag cust">ignorado</span>')+'</div></span><span class="small">'+fmtHM(x.ms/60000)+'</span></div>'}).join('');
+      c+='<div class="grid g2" style="margin-top:8px"><div><h4>Tempo</h4>'+(linhasT||'<div class="empty">Sem tempo registrado.</div>')+
+        (Object.keys(ps.min).length?'<div class="tiny muted" style="margin-top:4px">Lançamentos: '+Object.entries(ps.min).map(([m,v])=>esc(MAT[m].curto)+' '+fmtHM(v)).join(' · ')+'</div>':'')+
+        (ps.somaArred!==ps.totalArred?'<div class="tiny" style="color:var(--yellow-ink)">Arredondamento ao minuto: a soma por matéria dá '+fmtHM(ps.somaArred)+' e o total, '+fmtHM(ps.totalArred)+'.</div>':'')+'</div>';
+      // questões
+      const nul=s.questoes.map((q,qi)=>({q,qi})).filter(({q})=>!q.resultado&&(!q.repetida||q.incluirRep));
+      const rep=s.questoes.map((q,qi)=>({q,qi})).filter(({q})=>q.repetida);
+      c+='<div><h4>Questões</h4><div class="small">'+ps.q.total+' contabilizada(s) · <b>'+ps.q.ok+'</b> acerto(s) · <b>'+ps.q.err+'</b> erro(s)'+(ps.q.total?' · '+accTag(ps.q.ok,ps.q.total):'')+'</div>'+
+        (rep.length?'<details style="margin-top:6px"><summary class="small">'+rep.length+' repetida(s): '+rep.filter(x=>x.q.incluirRep).length+' incluída(s)</summary>'+rep.map(({q,qi})=>'<label class="row tiny" style="gap:6px;margin:4px 0"><input type="checkbox" data-imprep="'+si+'|'+qi+'"'+(q.incluirRep?' checked':'')+'> '+esc(q.qid)+' · '+esc(q.nome)+(q.assunto?' / '+esc(q.assunto):'')+' · '+(q.resultado||'sem resultado')+'</label>').join('')+'</details>':'')+
+        (nul.length?'<div class="tiny" style="margin-top:6px">Não contabilizadas (sem resultado): '+nul.length+'</div>'+nul.map(({q,qi})=>'<div class="row tiny" style="gap:6px;margin:3px 0"><span>'+esc(q.qid)+' · '+esc(q.nome)+(q.assunto?' / '+esc(q.assunto):'')+'</span><select data-impnul="'+si+'|'+qi+'" aria-label="Resultado da questão '+esc(q.qid)+'"><option value="">ignorar</option><option value="acerto"'+(q.corr==='acerto'?' selected':'')+'>acerto</option><option value="erro"'+(q.corr==='erro'?' selected':'')+'>erro</option></select></div>').join(''):'')+'</div></div>';
+      if(temNaoId(s))c+='<div class="row small" style="margin-top:8px;gap:6px">Trecho “Não identificada”: <select data-impnid="'+si+'" aria-label="Matéria do trecho não identificado"><option value="">— escolher —</option>'+state.materias.map(m=>'<option value="'+m.id+'"'+(s.naoIdEsc===m.id?' selected':'')+'>'+esc(m.nome)+'</option>').join('')+'<option value="'+DESC+'"'+(s.naoIdEsc===DESC?' selected':'')+'>Descartar este trecho</option></select></div>';
+    }
+    return c+'</div>';
+  }).join('');
+  if(P.dup.length)h+='<h4 style="margin-top:12px">Possível duplicidade</h4><p class="tiny muted">Já existem horas lançadas no StudyOS (manualmente ou pelo cronômetro) nestas datas e matérias. Escolha o que fazer com cada uma.</p><div class="tw"><table><tr><th>Data</th><th>Matéria</th><th>Já lançado</th><th>A importar</th><th>O que fazer</th></tr>'+
+    P.dup.map((d,i)=>'<tr><td>'+fmtBR(d.data,1)+'</td><td>'+tagMat(d.m)+'</td><td>'+fmtHM(d.exist)+'</td><td>'+fmtHM(d.imp)+'</td><td><select data-impdup="'+i+'" aria-label="Duplicidade"><option value="">— escolher —</option><option value="somar"'+(d.esc==='somar'?' selected':'')+'>Somar (fica '+fmtHM(d.exist+d.imp)+')</option><option value="pular"'+(d.esc==='pular'?' selected':'')+'>Pular (manter '+fmtHM(d.exist)+')</option></select></td></tr>').join('')+'</table></div>';
+  IMP.dupList=P.dup.map(d=>d.k);
+  h+='<div class="note" style="margin-top:12px">Serão gravados <b>'+P.tempos.length+'</b> lançamento(s) de tempo (<b>'+fmtHM(P.totMin)+'</b>) e <b>'+P.questoes.length+'</b> registro(s) de questões (<b>'+P.totQ+'</b> questões), de <b>'+P.nSessoes+'</b> sessão(ões). Antes de gravar, uma cópia de segurança do estado atual é criada automaticamente.</div>';
+  if(P.pend.length)h+='<div class="err" style="margin-top:8px">Antes de gravar: '+P.pend.map(esc).join('; ')+'.</div>';
+  h+='<div class="mft"><button data-act="impVoltar" data-id="mapa">Voltar</button><button class="pri" data-act="impGravar"'+(P.pend.length||(!P.tempos.length&&!P.questoes.length)?' disabled':'')+'>Gravar importação</button></div>';
+  return h;
+}
+ACOES.impIrPrevia=()=>{if(pendentesMapa()){toast('Escolha a matéria de todos os nomes',1);return}IMP.passo='previa';atualizarImp()};
+document.addEventListener('change',e=>{
+  const t=e.target;if(!IMP||!t.dataset)return;const ss=impSessoes();
+  if(t.dataset.impinc!==undefined){ss[+t.dataset.impinc].incluir=t.checked;atualizarImp();return}
+  if(t.dataset.imprep!==undefined){const [a,b]=t.dataset.imprep.split('|');ss[+a].questoes[+b].incluirRep=t.checked;atualizarImp();return}
+  if(t.dataset.impnul!==undefined){const [a,b]=t.dataset.impnul.split('|');ss[+a].questoes[+b].corr=t.value||null;atualizarImp();return}
+  if(t.dataset.impnid!==undefined){ss[+t.dataset.impnid].naoIdEsc=t.value;atualizarImp();return}
+  if(t.dataset.impdup!==undefined){IMP.dup[IMP.dupList[+t.dataset.impdup]]=t.value;atualizarImp();return}
+});
+/* Cópia de segurança antes de importar (usa o sistema de backup: navegador e, se conectada, a pasta) */
+const LS_PREIMP='studyos-antes-importacao';
+function copiaSegurancaImportacao(json){
+  const agora=new Date(),nome='studyos-antes-importacao-'+d2s(agora)+'-'+pad(agora.getHours())+pad(agora.getMinutes())+pad(agora.getSeconds())+'.json';
+  let lista=[];try{lista=JSON.parse(localStorage.getItem(LS_PREIMP)||'[]')}catch(e){}
+  lista.unshift({nome,quando:agora.toISOString(),json});lista=lista.slice(0,5);
+  localStorage.setItem(LS_PREIMP,JSON.stringify(lista));              // lança erro se não houver espaço: a importação é abortada
+  if(typeof pasta!=='undefined'&&pasta&&pastaOk)filaGravacao=filaGravacao.then(()=>gravarArq(nome,json)).catch(e=>console.error(e));
+  return nome;
+}
+function aplicarImportacao(d,P,impId,quando){
+  if(!d.importacao)d.importacao={mapMat:{},mapAss:{},sessoes:{},historico:[]};
+  const ie=d.importacao,tIds=[],qIds=[];
+  for(const t of P.tempos){const id=uid('t');tIds.push(id);
+    d.tempos.push({id,data:t.data,m:t.m,min:t.min,obs:'Importado da extensão · sessão '+t.sid,origem:'importado',imp:{id:impId,sid:t.sid},orig:{data:t.data,m:t.m,min:t.min},criado:Date.now()})}
+  for(const g of P.questoes){const id=uid('q');qIds.push(id);
+    d.questoes.push({id,data:g.data,m:g.m,t:g.t,total:g.total,ok:g.ok,err:g.err,obs:g.obs||undefined,origem:'importado',imp:{id:impId,sids:g.sids},orig:{data:g.data,m:g.m,t:g.t,total:g.total,ok:g.ok,err:g.err},criado:Date.now()})}
+  const sids=sessoesAtivas().filter(s=>s.incluir).map(s=>s.sid);
+  for(const sid of sids)ie.sessoes[kk(sid)]={sid,imp:impId};
+  for(const k of IMP.mmList){const e=IMP.mm[k];if(e.esc&&e.fonte!=='auto')ie.mapMat[k]={nome:e.nome,m:e.esc}}
+  for(const k of IMP.maList){const a=IMP.ma[k];ie.mapAss[k]={mid:a.mid,ass:a.ass,t:a.esc||''}}
+  ie.historico.unshift({id:impId,quando,arquivos:[...new Set(sessoesAtivas().filter(s=>s.incluir).map(s=>s.arquivo))],sessoes:sids,questoes:P.totQ,minutos:P.totMin,tempoIds:tIds,questaoIds:qIds,ignorado:P.ign});
+}
+function conferirConsistencia(d){ // checagens após aplicar, antes de trocar o estado
+  validarDados(d);
+  for(const t of d.tempos)if(!MAT[t.m]&&!d.materias.some(m=>m.id===t.m)||!(t.min>0)||!dataValida(t.data))throw new Error('lançamento de tempo inválido');
+  for(const q of d.questoes)if(q.ok+q.err!==q.total||!(q.total>0)||!dataValida(q.data))throw new Error('registro de questões inválido');
+  JSON.stringify(d);
+}
+ACOES.impGravar=()=>{
+  const P=construirPlano();
+  if(P.pend.length){toast('Resolva as pendências antes de gravar',1);return}
+  const impId=uid('imp'),quando=new Date().toISOString();
+  let antes,copia;
+  try{antes=JSON.stringify(state);copia=copiaSegurancaImportacao(antes)}
+  catch(e){toast('Não foi possível criar a cópia de segurança; nada foi importado ('+e.message+')',1);return}
+  try{
+    const novo=JSON.parse(antes);                 // trabalha numa cópia: o estado atual só é trocado no fim
+    aplicarImportacao(novo,P,impId,quando);
+    if(IMP.simularFalha)throw new Error('falha simulada durante a importação');
+    conferirConsistencia(novo);
+    state=novo;indexar();
+  }catch(e){console.error(e);toast('A importação falhou e nada foi gravado: '+e.message,1);return}
+  IMP.resultado={P,impId,copia};IMP.passo='fim';
+  commit();salvarDados();atualizarImp();
+};
+function htmlImpFim(){
+  const {P,copia}=IMP.resultado,I=P.ign;
+  const ign=[I.sessoes?I.sessoes+' sessão(ões) desmarcada(s)':'',I.repetidas?I.repetidas+' questão(ões) repetida(s) deixada(s) de fora':'',I.nulas?I.nulas+' questão(ões) sem resultado não contabilizada(s)':'',I.qIgnoradas?I.qIgnoradas+' questão(ões) de nomes ignorados':'',I.msIgnorado?fmtHM(I.msIgnorado/60000)+' de nomes ignorados':'',I.msDescartado?fmtHM(I.msDescartado/60000)+' de trechos “Não identificada” descartados':'',I.pulados.length?'horas puladas por duplicidade: '+I.pulados.join(', '):'',I.zero?I.zero+' matéria(s) com menos de 30 s (arredondadas para zero)':''].filter(Boolean);
+  return '<div class="ok"><b class="ft">Importação concluída.</b><br>Gravados: '+P.tempos.length+' lançamento(s) de tempo ('+fmtHM(P.totMin)+') e '+P.questoes.length+' registro(s) de questões ('+P.totQ+' questões), de '+P.nSessoes+' sessão(ões).</div>'+
+    '<div class="'+(ign.length?'warn':'note')+'" style="margin-top:8px">'+(ign.length?'Ignorado: '+ign.map(esc).join(' · '):'Nada foi ignorado.')+'</div>'+
+    '<p class="tiny muted">Cópia de segurança do estado anterior: '+esc(copia)+'. Ranking, metas, constância, painel Hoje e estatísticas já estão atualizados. Para reverter, use “Desfazer importação” no histórico.</p>'+
+    '<div class="mft"><button data-act="impVerTempo">Ver em Tempo de Estudos</button><button data-act="impVerQuest">Ver em Questões</button><button class="pri" data-act="impFechar">Concluir</button></div>';
+}
+ACOES.impVerTempo=()=>{ACOES.impFechar();ui.tab='tempo';render()};
+ACOES.impVerQuest=()=>{ACOES.impFechar();ui.tab='questoes';render()};
+const ORIGEM_TX={manual:'manual',cronometro:'⏱ cronômetro',importado:'⇩ importado'};
+function casaTempo(t,f){
+  if(f.mats.length&&!f.mats.includes(t.m))return false;
+  if(f.origem&&f.origem.length&&!f.origem.includes(t.origem||'manual'))return false;
+  if(f.q.trim()&&!termosOk(f.q,[MAT[t.m]&&MAT[t.m].nome,t.obs,fmtBR(t.data,1)].join(' ')))return false;
+  return true;
+}
 /*@@V3@@*/
 
 /* =================== v2 · ETAPA 4: painel "Hoje" =================== */
@@ -2116,11 +2281,12 @@ ACOES.mtPadrao=()=>{Object.assign(state.metas,{horas:1200,questoes:100,topicos:n
 /* =================== v2 · ETAPA 2: filtros e busca =================== */
 /* Os filtros só escondem itens da visualização: nada no planejamento, nas estatísticas ou nos dados muda. */
 const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
-const FILTRO_VAZIO={plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[]}};
+const FILTRO_VAZIO={plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[],origem:[]},tempo:{q:'',mats:[],origem:[]}};
 const FGRUPOS={
   plan:[['mats','Matéria'],['status','Status'],['inc','Incidência'],['met','Conclusão'],['per','Período']],
   materias:[['mats','Matéria'],['status','Status']],
-  questoes:[['mats','Matéria'],['faixa','Desempenho']]
+  questoes:[['mats','Matéria'],['faixa','Desempenho'],['origem','Origem']],
+  tempo:[['mats','Matéria'],['origem','Origem']]
 };
 function opcoesF(esc,g){
   if(g==='mats')return state.materias.map(m=>[m.id,m.curto]);
@@ -2129,6 +2295,7 @@ function opcoesF(esc,g){
   if(g==='met')return METODOS.map(x=>[x,x]);
   if(g==='per')return [['hoje','Hoje'],['semana','Esta semana'],['proxima','Próxima semana'],['tudo','Todo o cronograma'],['intervalo','Intervalo de datas']];
   if(g==='faixa')return [['r','Abaixo de 70%'],['y','70% a 80%'],['g','Acima de 80%']];
+  if(g==='origem')return esc==='tempo'?[['manual','Manual'],['cronometro','Cronômetro'],['importado','Importado']]:[['manual','Manual'],['importado','Importado']];
   return [];
 }
 function F(esc){if(!state.filtros)state.filtros=clone({atual:FILTRO_VAZIO,salvos:[]});if(!state.filtros.atual[esc])state.filtros.atual[esc]=clone(FILTRO_VAZIO[esc]);return state.filtros.atual[esc]}
@@ -2171,7 +2338,8 @@ function casaTopico(t,f){
 function casaQuestao(q,f){
   if(f.mats.length&&!f.mats.includes(q.m))return false;
   if(f.faixa.length&&!f.faixa.includes(accCls(100*q.ok/q.total)))return false;
-  if(f.q.trim()&&!termosOk(f.q,[MAT[q.m]&&MAT[q.m].nome,q.t&&TOP[q.t]?TOP[q.t].t.nome:'',fmtBR(q.data,1)].join(' ')))return false;
+  if(f.origem&&f.origem.length&&!f.origem.includes(q.origem||'manual'))return false;
+  if(f.q.trim()&&!termosOk(f.q,[MAT[q.m]&&MAT[q.m].nome,q.t&&TOP[q.t]?TOP[q.t].t.nome:'',q.obs,fmtBR(q.data,1)].join(' ')))return false;
   return true;
 }
 function rotuloValor(esc,g,v){const o=opcoesF(esc,g).find(x=>x[0]===v);return o?o[1]:v}
