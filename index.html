@@ -237,6 +237,13 @@ main{max-width:1400px;margin:0 auto;padding:14px 16px 60px}
 .bnr .row{margin-top:6px}
 svg .cg{stroke:var(--chart-grid)}svg .c70{stroke:var(--chart-70)}svg .c80{stroke:var(--chart-80)}
 svg .tx{fill:var(--muted)}svg .tk{fill:var(--ink)}
+.fbar .fsearch{flex:1 1 220px;min-width:0}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.chip.x{padding-right:8px}
+.fpanel{display:flex;flex-direction:column;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.fgrp{display:flex;flex-direction:column;gap:5px}
+.fcount{white-space:nowrap}
 /*@@CSS_V2@@*/
 
 /* ===== Tablet (641–1024px): colunas com rolagem horizontal dentro do quadro ===== */
@@ -287,6 +294,8 @@ svg .tx{fill:var(--muted)}svg .tk{fill:var(--ink)}
   table.rt td[data-label=""]::before{display:none}
   table.rt td[data-label=""]{justify-content:flex-end}
   .rk{min-height:44px}
+  .chip{min-height:40px;padding:6px 12px}
+  .fbar .fsearch{flex-basis:100%}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -582,7 +591,7 @@ function estadoInicial(){
     materias,ciclo:clone(CICLO_PADRAO),folgas:clone(FOLGAS_PADRAO),cards:[],finalizadoEm:{},tempos:[],questoes:[],
     config:{cargaMax:240,maxDisc:3,amostraMin:20,revMin:{1:15,7:15,30:20},pomodoro:false,pomoFoco:25,pomoPausa:5,som:true},
     timer:null,meta:{ultimoBackupExterno:null,ultimaCopiaDiaria:null},
-    prefs:{tema:'auto'}/*@@ESTADO_V2@@*/};
+    prefs:{tema:'auto'},filtros:{atual:{plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[]}},salvos:[]}/*@@ESTADO_V2@@*/};
 }
 function indexar(){
   TOP={};MAT={};
@@ -745,6 +754,7 @@ function migrar(d){
   if(d.versao>VERSAO_DADOS)throw new Error('Versão de dados mais nova que este StudyOS');
   if(d.versao===1){ // v1 -> v2: tema, filtros, metas e constância (nada da v1 é removido)
     d.prefs=Object.assign({tema:'auto'},d.prefs||{});
+    d.filtros=d.filtros||null; // preenchido abaixo com os padrões
     d.versao=2;
   }
   // futuras migrações: if(d.versao===2){...; d.versao=3}
@@ -752,6 +762,9 @@ function migrar(d){
   for(const k of Object.keys(base))if(d[k]===undefined)d[k]=base[k];
   d.config=Object.assign(base.config,d.config||{});
   d.prefs=Object.assign(base.prefs,d.prefs||{});
+  if(!d.filtros||!d.filtros.atual)d.filtros=base.filtros;
+  for(const k of Object.keys(base.filtros.atual))d.filtros.atual[k]=Object.assign(base.filtros.atual[k],d.filtros.atual[k]||{});
+  if(!Array.isArray(d.filtros.salvos))d.filtros.salvos=[];
   d.meta=Object.assign(base.meta,d.meta||{});
   return d;
 }
@@ -937,29 +950,48 @@ VIEWS.plan=function(){
   const ws=semanas();
   if(ui.semana==null||ui.semana>=ws.length)ui.semana=semanaAtualIdx();
   const w=ws[ui.semana],cur=semanaAtualIdx();
+  const f=F('plan'),fa=filtroAtivo('plan'),ep=escopoPlan(w);
+  const todos=state.cards.filter(c=>c.data>=ep.de&&c.data<=ep.ate);
+  const vis=fa?todos.filter(c=>casaPlan(c,f)):todos;
   let h='';
   if(typeof htmlBlocosTopo==='function')h+=htmlBlocosTopo();
-  h+='<div class="subtabs">'+ws.map((x,i)=>'<button class="subtab'+(i===ui.semana?' on':'')+(i===cur?' cur':'')+(x.final?' fin':'')+'" data-sem="'+i+'">'+(x.final?'Revisão final · ':'')+x.label+'</button>').join('')+'</div>';
-  const cs=state.cards.filter(c=>c.data>=w.mon&&c.data<=w.fim);
-  const est=cs.filter(c=>c.tipo!=='rev'),fin=est.filter(c=>c.status==='Finalizado').length;
-  const carga=cs.reduce((a,c)=>a+c.min,0);
-  h+='<div class="row" style="margin-bottom:10px"><div><h2>Semana '+w.n+(w.final?' · Revisão geral':'')+'</h2><div class="muted small">'+fmtBR(w.ini,1)+' a '+fmtBR(w.fim,1)+' · '+cs.length+' blocos · '+fmtHM(carga)+' planejadas · '+fin+'/'+est.length+' finalizados</div></div><span class="sp"></span>'+
-     '<div class="seg"><button class="'+(ui.vista==='dias'?'on':'')+'" data-vista="dias">Por dia</button><button class="'+(ui.vista==='kanban'?'on':'')+'" data-vista="kanban">Kanban</button></div></div>';
-  if(w.final)h+='<div class="note" style="margin-bottom:10px">Semana final dedicada <b>integralmente à revisão</b>: nenhum conteúdo novo nem revisão espaçada é inserido aqui.</div>';
-  h+=(ui.vista==='kanban'&&typeof htmlKanban==='function')?htmlKanban(w,cs):htmlDias(w);
+  h+='<div class="panel" style="margin-bottom:12px;padding:12px">'+htmlFiltroBar('plan',fa?vis.length+' de '+todos.length+' tópicos':'','Buscar por tópico, assunto ou nota…')+'</div>';
+  if(!ep.per){
+    h+='<div class="subtabs">'+ws.map((x,i)=>'<button class="subtab'+(i===ui.semana?' on':'')+(i===cur?' cur':'')+(x.final?' fin':'')+'" data-sem="'+i+'">'+(x.final?'Revisão final · ':'')+x.label+'</button>').join('')+'</div>';
+    const cs=state.cards.filter(c=>c.data>=w.mon&&c.data<=w.fim);
+    const est=cs.filter(c=>c.tipo!=='rev'),fin=est.filter(c=>c.status==='Finalizado').length;
+    const carga=cs.reduce((a,c)=>a+c.min,0);
+    h+='<div class="row" style="margin-bottom:10px"><div><h2>Semana '+w.n+(w.final?' · Revisão geral':'')+'</h2><div class="muted small">'+fmtBR(w.ini,1)+' a '+fmtBR(w.fim,1)+' · '+cs.length+' blocos · '+fmtHM(carga)+' planejadas · '+fin+'/'+est.length+' finalizados</div></div><span class="sp"></span>'+
+       '<div class="seg"><button class="'+(ui.vista==='dias'?'on':'')+'" data-vista="dias">Por dia</button><button class="'+(ui.vista==='kanban'?'on':'')+'" data-vista="kanban">Kanban</button></div></div>';
+    if(w.final)h+='<div class="note" style="margin-bottom:10px">Semana final dedicada <b>integralmente à revisão</b>: nenhum conteúdo novo nem revisão espaçada é inserido aqui.</div>';
+  }else{
+    h+='<div class="row" style="margin-bottom:10px"><div><h2>Período: '+esc(ep.label)+'</h2><div class="muted small">'+fmtBR(ep.de,1)+(ep.de!==ep.ate?' a '+fmtBR(ep.ate,1):'')+' · filtro de período ativo</div></div><button class="sm" data-act="fRem" data-id="plan|per|">Voltar às semanas</button><span class="sp"></span>'+
+       '<div class="seg"><button class="'+(ui.vista==='dias'?'on':'')+'" data-vista="dias">Por dia</button><button class="'+(ui.vista==='kanban'?'on':'')+'" data-vista="kanban">Kanban</button></div></div>';
+  }
+  if(fa&&!vis.length)return h+htmlSemResultado('plan');
+  if(ui.vista==='kanban'&&typeof htmlKanban==='function')return h+htmlKanban(w,vis);
+  const visIds=fa?new Set(vis.map(c=>c.id)):null;
+  const semanasEsc=ws.filter(x=>x.fim>=ep.de&&x.mon<=ep.ate);
+  for(const x of semanasEsc){
+    const dias=x.dias.filter(d=>d>=ep.de&&d<=ep.ate);
+    if(!dias.length)continue;
+    if(fa&&semanasEsc.length>1&&!vis.some(c=>c.data>=x.mon&&c.data<=x.fim))continue;
+    if(semanasEsc.length>1)h+='<h4 style="margin:14px 0 8px">Semana '+x.n+' · '+fmtBR(x.ini)+'–'+fmtBR(x.fim)+'</h4>';
+    h+=htmlDias(x,{dias,vis:visIds});
+  }
   return h;
 };
-function htmlDias(w){
-  const h0=hoje();
-  return '<div class="board">'+w.dias.map(s=>{
+function htmlDias(w,opt){
+  opt=opt||{};const h0=hoje(),dias=opt.dias||w.dias;
+  return '<div class="board"'+(dias.length<5?' style="grid-template-columns:repeat('+dias.length+',minmax(0,1fr))"':'')+'>'+dias.map(s=>{
     const fora=s<INICIO,fol=isFolga(s);
     const {cs,subs,carga}=infoDia(s);
-    const ord=cs.slice().sort((a,b)=>(a.tipo==='rev')-(b.tipo==='rev')||state.materias.indexOf(MAT[a.m])-state.materias.indexOf(MAT[b.m]));
+    const ord=cs.filter(c=>!opt.vis||opt.vis.has(c.id)).sort((a,b)=>(a.tipo==='rev')-(b.tipo==='rev')||state.materias.indexOf(MAT[a.m])-state.materias.indexOf(MAT[b.m]));
     let alert='';
     if(subs.size>state.config.maxDisc)alert+=' ⚠ >'+state.config.maxDisc+' disc.';
     if(subs.has(LP)&&subs.has(INF))alert+=' ⚠ Port.+Info';
     const head='<div class="colh'+(s===h0?' today':'')+'"><b>'+DIAS_L[dow(s)]+' '+fmtBR(s)+'</b><span class="small muted">'+(fora?'antes do início':fol?'Folga · '+esc(nomeFolga(s)):fmtHM(carga)+' · '+subs.size+' disc.')+'<span style="color:var(--red)">'+alert+'</span></span></div>';
-    return '<div class="col'+(fora||fol?' off':'')+'" data-dropday="'+s+'">'+head+(ord.map(htmlCard).join('')||'<div class="empty">'+(fora||fol?'Sem estudo':'Nada planejado')+'</div>')+'</div>';
+    return '<div class="col'+(fora||fol?' off':'')+'" data-dropday="'+s+'">'+head+(ord.map(htmlCard).join('')||'<div class="empty">'+(fora||fol?'Sem estudo':opt.vis&&cs.length?'Nenhum item filtrado':'Nada planejado')+'</div>')+'</div>';
   }).join('')+'</div>';
 }
 
@@ -1012,14 +1044,23 @@ function validarCiclo(c){
 VIEWS.materias=function(){
   let h='<div class="row" style="margin-bottom:10px"><div><h2>Matérias e assuntos</h2><div class="muted small">Na ordem do Anexo VIII do edital.</div></div></div>';
   h+='<div class="note" style="margin-bottom:12px"><b>Incidência ALTA / MÉDIA / BAIXA é uma estimativa</b>, baseada no perfil das provas recentes da VUNESP para Oficial de Justiça em Tribunais de Justiça (foco em atos de comunicação, penhora, atribuições do oficial, crimes contra a administração pública, Normas da Corregedoria, gramática normativa e interpretação). A divisão das 40 questões de Conhecimentos Específicos entre as matérias também é estimada. Você pode editar tudo; o planejamento usa a incidência para dar mais tempo aos tópicos mais cobrados.</div>';
+  const fm=F('materias'),fa=filtroAtivo('materias');
+  const totT=state.materias.reduce((a,m)=>a+m.topicos.length,0);
+  const visT=state.materias.reduce((a,m)=>a+((fm.mats.length&&!fm.mats.includes(m.id))?0:m.topicos.filter(t=>casaTopico(t,fm)).length),0);
+  h+='<div class="panel" style="margin-bottom:12px;padding:12px">'+htmlFiltroBar('materias',fa?visT+' de '+totT+' tópicos':'','Buscar tópico…')+'</div>';
+  if(fa&&!visT)return h+htmlSemResultado('materias');
   for(const m of state.materias){
     const tops=m.topicos,tf=tops.filter(t=>statusTopico(t.id)==='Finalizado').length,pct=tops.length?Math.round(100*tf/tops.length):0;
-    const open=ui.matOpen[m.id];
+    if(fm.mats.length&&!fm.mats.includes(m.id))continue;
+    const visM=fa?new Set(tops.filter(t=>casaTopico(t,fm))):null;
+    if(fa&&!visM.size)continue;
+    const open=ui.matOpen[m.id]||fa;
     h+='<div class="mat'+(open?' open':'')+'"><div class="math" data-matopen="'+m.id+'"><span class="dotc" style="--c:'+cv(m.id)+'"></span><h3>'+esc(m.nome)+'</h3><span class="small muted">'+esc(m.pesoTxt)+'</span><span class="sp"></span>'+
       '<label class="small muted row" style="gap:4px" data-stop>Incidência <select data-matinc="'+m.id+'">'+optsInc(m.inc)+'</select></label>'+
       '<span class="small muted">'+tf+'/'+tops.length+'</span><div class="bar" style="width:80px"><i style="width:'+pct+'%;background:'+cv(m.id)+'"></i></div><span>'+(open?'▾':'▸')+'</span></div>';
     h+='<div class="matb">';
     tops.forEach((t,i)=>{
+      if(visM&&!visM.has(t))return;
       const st=statusTopico(t.id),n=cardsDoTopico(t.id);
       const datas=n.length?n.map(c=>fmtBR(c.data)).join(', '):'não agendado';
       h+='<div class="topic"><span class="tiny muted" style="width:22px">'+(i+1)+'.</span><span class="tn">'+esc(t.nome)+(t.custom?' <span class="tag cust">novo</span>':'')+'<div class="tiny muted">📅 '+datas+'</div></span>'+
@@ -1414,8 +1455,9 @@ VIEWS.questoes=function(){
     pr.map((x,i)=>'<div class="rk" data-act="qDet" data-id="'+x.m.id+'"><span class="n">'+(i+1)+'</span><span class="dotc" style="--c:'+cv(x.m.id)+'"></span><span class="t"><b class="ft small">'+esc(x.m.nome)+'</b><div class="tiny muted">'+esc(x.just)+'</div></span><div style="width:90px"><div class="bar"><i style="width:'+x.idx+'%;background:'+cv(x.m.id)+'"></i></div></div><b class="ft" style="width:30px;text-align:right">'+x.idx+'</b></div>').join('')+'</div>';
   if(ui.qMat&&MAT[ui.qMat])o+=htmlDetalheQ(ui.qMat);
   // histórico
-  const hist=state.questoes.slice().sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.criado||0)-(a.criado||0));
-  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+(hist.length?'<div class="tw"><table><tr><th>Data</th><th>Matéria</th><th>Assunto</th><th>Total</th><th>Acertos</th><th>Erros</th><th>%</th><th></th></tr>'+hist.map(q=>'<tr><td>'+fmtBR(q.data,1)+'</td><td>'+(MAT[q.m]?tagMat(q.m):'—')+'</td><td class="small">'+esc(q.t&&TOP[q.t]?TOP[q.t].t.nome:'—')+'</td><td>'+q.total+'</td><td>'+q.ok+'</td><td>'+q.err+'</td><td>'+accTag(q.ok,q.total)+'</td><td style="white-space:nowrap"><button class="ico" data-act="qEditar" data-id="'+q.id+'">✎</button><button class="ico" data-act="qDel" data-id="'+q.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhuma questão registrada.</div>')+'</div>';
+  const fq=F('questoes'),faq=filtroAtivo('questoes');
+  const hist=state.questoes.filter(q=>!faq||casaQuestao(q,fq)).sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:(b.criado||0)-(a.criado||0));
+  o+='<div class="panel" style="margin-top:14px"><h3>Histórico</h3>'+htmlFiltroBar('questoes',faq?hist.length+' de '+state.questoes.length+' registros':'','Buscar por matéria, assunto ou data…')+'<div style="height:10px"></div>'+(faq&&state.questoes.length&&!hist.length?htmlSemResultado('questoes'):hist.length?'<div class="tw"><table><tr><th>Data</th><th>Matéria</th><th>Assunto</th><th>Total</th><th>Acertos</th><th>Erros</th><th>%</th><th></th></tr>'+hist.map(q=>'<tr><td>'+fmtBR(q.data,1)+'</td><td>'+(MAT[q.m]?tagMat(q.m):'—')+'</td><td class="small">'+esc(q.t&&TOP[q.t]?TOP[q.t].t.nome:'—')+'</td><td>'+q.total+'</td><td>'+q.ok+'</td><td>'+q.err+'</td><td>'+accTag(q.ok,q.total)+'</td><td style="white-space:nowrap"><button class="ico" data-act="qEditar" data-id="'+q.id+'">✎</button><button class="ico" data-act="qDel" data-id="'+q.id+'">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhuma questão registrada.</div>')+'</div>';
   return o;
 };
 function htmlDetalheQ(mid){
@@ -1609,6 +1651,136 @@ async function aoIniciar(){
   }
 }
 
+
+/*@@V2_MODULOS@@*/
+/* =================== v2 · ETAPA 2: filtros e busca =================== */
+/* Os filtros só escondem itens da visualização: nada no planejamento, nas estatísticas ou nos dados muda. */
+const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const FILTRO_VAZIO={plan:{q:'',mats:[],status:[],inc:[],met:[],per:'',de:'',ate:''},materias:{q:'',mats:[],status:[]},questoes:{q:'',mats:[],faixa:[]}};
+const FGRUPOS={
+  plan:[['mats','Matéria'],['status','Status'],['inc','Incidência'],['met','Conclusão'],['per','Período']],
+  materias:[['mats','Matéria'],['status','Status']],
+  questoes:[['mats','Matéria'],['faixa','Desempenho']]
+};
+function opcoesF(esc,g){
+  if(g==='mats')return state.materias.map(m=>[m.id,m.curto]);
+  if(g==='status')return esc==='plan'?[['nao','Não iniciado'],['Iniciado','Iniciado'],['Revisar','Revisar'],['Finalizado','Finalizado'],['rev','Revisão'],['atr','Atrasado']]:[['nao','Não iniciado'],['Iniciado','Iniciado'],['Revisar','Revisar'],['Finalizado','Finalizado'],['atr','Atrasado']];
+  if(g==='inc')return [['A','ALTA'],['M','MÉDIA'],['B','BAIXA']];
+  if(g==='met')return METODOS.map(x=>[x,x]);
+  if(g==='per')return [['hoje','Hoje'],['semana','Esta semana'],['proxima','Próxima semana'],['tudo','Todo o cronograma'],['intervalo','Intervalo de datas']];
+  if(g==='faixa')return [['r','Abaixo de 70%'],['y','70% a 80%'],['g','Acima de 80%']];
+  return [];
+}
+function F(esc){if(!state.filtros)state.filtros=clone({atual:FILTRO_VAZIO,salvos:[]});if(!state.filtros.atual[esc])state.filtros.atual[esc]=clone(FILTRO_VAZIO[esc]);return state.filtros.atual[esc]}
+function filtroAtivo(esc){const f=F(esc);return !!(f.q.trim()||FGRUPOS[esc].some(([g])=>g==='per'?!!f.per:(f[g]||[]).length))}
+function nAtivos(esc){const f=F(esc);return FGRUPOS[esc].reduce((a,[g])=>a+(g==='per'?(f.per?1:0):(f[g]||[]).length),0)}
+function termosOk(q,txt){const ts=norm(q).split(/\s+/).filter(Boolean);if(!ts.length)return true;const t=norm(txt);return ts.every(x=>t.includes(x))}
+/* Planejamento */
+function statusCasa(c,s){
+  if(s==='rev')return c.tipo==='rev';
+  if(s==='atr')return isAtrasado(c);
+  if(c.tipo==='rev')return false;
+  if(s==='nao')return !c.status;
+  return c.status===s;
+}
+function casaPlan(c,f){
+  if(f.q.trim()){const tp=c.t&&TOP[c.t]?TOP[c.t].t.nome:'';if(!termosOk(f.q,[c.titulo,tp,MAT[c.m]&&MAT[c.m].nome,MAT[c.m]&&MAT[c.m].curto,c.nota,c.tipo==='rev'?'revisao':'',c.tipo==='final'?'revisao geral':''].join(' ')))return false}
+  if(f.mats.length&&!f.mats.includes(c.m))return false;
+  if(f.status.length&&!f.status.some(s=>statusCasa(c,s)))return false;
+  if(f.inc.length&&!(c.t&&TOP[c.t]&&f.inc.includes(TOP[c.t].t.inc)))return false;
+  if(f.met.length&&!f.met.includes(c.metodo))return false;
+  return true;
+}
+function escopoPlan(w){
+  const f=F('plan'),h=maxS(hoje(),INICIO),ws=semanas();
+  if(f.per==='hoje')return {per:'hoje',de:hoje(),ate:hoje(),label:'Hoje ('+fmtBR(hoje())+')'};
+  if(f.per==='semana'){const x=semanaDe(h)||ws[ws.length-1];return {per:'semana',de:x.mon,ate:x.fim,label:'Esta semana (S'+x.n+')'}}
+  if(f.per==='proxima'){const x=semanaDe(addDias(segundaDe(h),7))||ws[ws.length-1];return {per:'proxima',de:x.mon,ate:x.fim,label:'Próxima semana (S'+x.n+')'}}
+  if(f.per==='tudo')return {per:'tudo',de:INICIO,ate:REV_FIM,label:'Todo o cronograma'};
+  if(f.per==='intervalo'&&f.de&&f.ate&&f.de<=f.ate)return {per:'intervalo',de:f.de,ate:f.ate,label:fmtBR(f.de,1)+' a '+fmtBR(f.ate,1)};
+  return {per:'',de:w.mon,ate:w.fim,label:'Semana '+w.n};
+}
+/* Matérias */
+function statusTopicoF(t){const s=statusTopico(t.id);if(cardsDoTopico(t.id).some(isAtrasado))return [s||'nao','atr'];return [s||'nao']}
+function casaTopico(t,f){
+  if(f.q.trim()&&!termosOk(f.q,t.nome+' '+TOP[t.id].m.nome))return false;
+  if(f.status.length&&!statusTopicoF(t).some(s=>f.status.includes(s)))return false;
+  return true;
+}
+/* Questões (histórico): status = faixa de desempenho */
+function casaQuestao(q,f){
+  if(f.mats.length&&!f.mats.includes(q.m))return false;
+  if(f.faixa.length&&!f.faixa.includes(accCls(100*q.ok/q.total)))return false;
+  if(f.q.trim()&&!termosOk(f.q,[MAT[q.m]&&MAT[q.m].nome,q.t&&TOP[q.t]?TOP[q.t].t.nome:'',fmtBR(q.data,1)].join(' ')))return false;
+  return true;
+}
+function rotuloValor(esc,g,v){const o=opcoesF(esc,g).find(x=>x[0]===v);return o?o[1]:v}
+function htmlFiltroBar(esc,cont,ph){
+  const f=F(esc),abre=ui.fPainel&&ui.fPainel[esc],n=nAtivos(esc),at=filtroAtivo(esc);
+  let h='<div class="fbar"><div class="row">'+
+    '<input type="search" id="fq-'+esc+'" data-fq="'+esc+'" class="fsearch" placeholder="'+esc_(ph||'Buscar…')+'" value="'+esc_(f.q)+'" aria-label="Buscar">'+
+    '<button data-act="fPainel" data-id="'+esc+'" aria-expanded="'+!!abre+'">⚙ Filtros'+(n?' <span class="pill g">'+n+'</span>':'')+' '+(abre?'▴':'▾')+'</button>';
+  if(esc==='plan'){
+    const sv=state.filtros.salvos||[];
+    h+='<select data-fsalvo aria-label="Filtros salvos"><option value="">★ Filtros salvos'+(sv.length?' ('+sv.length+')':'')+'</option>'+sv.map(x=>'<option value="'+x.id+'">'+esc_(x.nome)+'</option>').join('')+'</select>'+
+       '<button data-act="fSalvar"'+(at?'':' disabled')+' title="Salvar esta combinação com um nome">Salvar</button>'+(sv.length?'<button class="ico" data-act="fGerir" title="Renomear ou excluir filtros salvos">✎</button>':'');
+  }
+  h+='<span class="sp"></span>'+(cont?'<span class="small muted fcount">'+cont+'</span>':'')+(at?'<button class="sm" data-act="fLimpar" data-id="'+esc+'">Limpar filtros</button>':'')+'</div>';
+  if(abre){
+    h+='<div class="fpanel">'+FGRUPOS[esc].map(([g,nome])=>{
+      const sel=g==='per'?[f.per]:(f[g]||[]);
+      let o='<div class="fgrp"><span class="tiny muted ft">'+nome+(g==='per'?'':' (pode marcar vários)')+'</span><div class="row" style="gap:6px">'+
+        opcoesF(esc,g).map(([v,l])=>'<button class="chip'+(sel.includes(v)?' on':'')+'" data-act="fTog" data-id="'+esc+'|'+g+'|'+v+'" aria-pressed="'+sel.includes(v)+'">'+(g==='mats'?'<span class="dotc" style="--c:'+cv(v)+'"></span>':'')+esc_(l)+'</button>').join('')+'</div>';
+      if(g==='per'&&f.per==='intervalo')o+='<div class="row" style="margin-top:6px"><label class="small muted">De <input type="date" data-fdate="de" value="'+(f.de||'')+'" min="'+INICIO+'" max="'+REV_FIM+'"></label><label class="small muted">até <input type="date" data-fdate="ate" value="'+(f.ate||'')+'" min="'+INICIO+'" max="'+REV_FIM+'"></label></div>';
+      return o+'</div>';
+    }).join('')+'</div>';
+  }
+  if(at){
+    let ch='';
+    if(f.q.trim())ch+='<button class="chip on x" data-act="fRem" data-id="'+esc+'|q|">“'+esc_(f.q.trim())+'” ✕</button>';
+    for(const [g,nome] of FGRUPOS[esc]){
+      if(g==='per'){if(f.per)ch+='<button class="chip on x" data-act="fRem" data-id="'+esc+'|per|">'+nome+': '+esc_(rotuloValor(esc,g,f.per))+' ✕</button>';continue}
+      for(const v of (f[g]||[]))ch+='<button class="chip on x" data-act="fRem" data-id="'+esc+'|'+g+'|'+v+'" title="Remover filtro">'+nome+': '+esc_(rotuloValor(esc,g,v))+' ✕</button>';
+    }
+    h+='<div class="row fchips" style="gap:6px;margin-top:8px">'+ch+'</div>';
+  }
+  return h+'</div>';
+}
+const esc_=esc;
+function htmlSemResultado(esc){return '<div class="panel empty" style="padding:28px 16px"><div style="font-size:15px;margin-bottom:10px;color:var(--ink)">Nenhum item corresponde aos filtros.</div><button class="pri" data-act="fLimpar" data-id="'+esc+'">Limpar filtros</button></div>'}
+ACOES.fPainel=esc=>{ui.fPainel=ui.fPainel||{};ui.fPainel[esc]=!ui.fPainel[esc];render()};
+ACOES.fTog=id=>{
+  const [esc,g,v]=id.split('|'),f=F(esc);
+  if(g==='per')f.per=f.per===v?'':v;
+  else{const a=f[g]=f[g]||[];const i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v)}
+  filtrosMudaram();
+};
+ACOES.fRem=id=>{const [esc,g,v]=id.split('|'),f=F(esc);if(g==='q')f.q='';else if(g==='per'){f.per='';f.de='';f.ate=''}else f[g]=(f[g]||[]).filter(x=>x!==v);filtrosMudaram()};
+ACOES.fLimpar=esc=>{state.filtros.atual[esc]=clone(FILTRO_VAZIO[esc]);filtrosMudaram()};
+function filtrosMudaram(){agendarSalvar();render()} // só a visualização muda; o último conjunto fica salvo no JSON
+ACOES.fSalvar=()=>{
+  const ov=modal('<h3>Salvar filtros</h3><div class="fm"><label class="full">Nome<input id="fsNome" placeholder="Ex.: Alta incidência pendente" maxlength="60"></label></div><div class="mft"><button data-x>Cancelar</button><button class="pri" data-ok>Salvar</button></div>');
+  $('#fsNome').focus();$('[data-x]',ov).onclick=fecharModal;
+  $('[data-ok]',ov).onclick=()=>{const n=$('#fsNome').value.trim();if(!n){toast('Dê um nome ao filtro',1);return}
+    state.filtros.salvos.push({id:uid('f'),nome:n,f:clone(F('plan'))});fecharModal();filtrosMudaram();toast('Filtro “'+n+'” salvo')};
+};
+ACOES.fGerir=()=>{
+  const sv=state.filtros.salvos;
+  const ov=modal('<h3>Filtros salvos</h3>'+(sv.length?'<div class="tw"><table><tr><th>Nome</th><th></th></tr>'+sv.map(x=>'<tr><td><input data-fsren="'+x.id+'" value="'+esc_(x.nome)+'" style="width:100%" aria-label="Nome do filtro"></td><td style="white-space:nowrap;text-align:right"><button class="sm" data-act="fAplicar" data-id="'+x.id+'">Aplicar</button><button class="ico" data-act="fDel" data-id="'+x.id+'" title="Excluir">🗑</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nenhum filtro salvo.</div>')+'<div class="mft"><button class="pri" data-x>Concluir</button></div>');
+  $('[data-x]',ov).onclick=()=>{$$('[data-fsren]',ov).forEach(i=>{const x=sv.find(s=>s.id===i.dataset.fsren);if(x&&i.value.trim())x.nome=i.value.trim()});fecharModal();filtrosMudaram()};
+};
+ACOES.fAplicar=id=>{const x=state.filtros.salvos.find(s=>s.id===id);if(!x)return;state.filtros.atual.plan=Object.assign(clone(FILTRO_VAZIO.plan),clone(x.f));fecharModal();filtrosMudaram();toast('Filtro “'+x.nome+'” aplicado')};
+ACOES.fDel=id=>{const x=state.filtros.salvos.find(s=>s.id===id);fecharModal();confirmar('Excluir o filtro salvo “'+esc_(x?x.nome:'')+'”?',()=>{state.filtros.salvos=state.filtros.salvos.filter(s=>s.id!==id);filtrosMudaram()},'Excluir')};
+let fqTimer=null;
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t.dataset||!t.dataset.fq)return;
+  F(t.dataset.fq).q=t.value;clearTimeout(fqTimer);fqTimer=setTimeout(()=>{agendarSalvar();render()},120);
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.fsalvo!==undefined){if(t.value)ACOES.fAplicar(t.value);return}
+  if(t.dataset&&t.dataset.fdate){F('plan')[t.dataset.fdate]=t.value;filtrosMudaram();return}
+});
 
 /* ---------- Ações (delegação de eventos) ---------- */
 function cardPorId(id){return state.cards.find(c=>c.id===id)}
